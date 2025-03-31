@@ -77,9 +77,9 @@ const path = require("path")
 
 // Synchronised functions
 
-try {
-    fs.mkdirSync("./upload/test")
-}
-catch (err) {
-    console.log("error", err.message);
-}
+// try {
+//     fs.mkdirSync("./upload/test")
+// }
+// catch (err) {
+//     console.log("error", err.message);
+// }

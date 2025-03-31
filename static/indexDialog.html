@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <h1>HTML Objects</h1>
+    <h2>The Dialog Object</h2>
+
+    <p>Click the button to create a DIALOG element with some text.</p>
+
+    <button onclick="myFunction()">Try it</button>
+
+    <script>
+        function myFunction() {
+            let dialog = document.getElementById('dialog')
+            if (dialog == null) {
+                dialog = document.createElement("DIALOG");
+                const textNode = document.createTextNode("This is an open dialog window");
+                dialog.id = "dialog"
+                dialog.setAttribute("open", "open");
+                dialog.appendChild(textNode);
+                document.body.appendChild(dialog);
+            } else {
+                dialog.remove()
+            }
+        }
+    </script>
+
+</body>
+
+</html>

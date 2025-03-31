@@ -1,0 +1,66 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    height: 100vh;
+}
+
+header {
+    padding: 20px;
+}
+
+h1 {
+    color: blue;
+    text-decoration: underline;
+}
+
+main {
+    display: grid;
+    grid-template-columns: 30% 70%;
+    background-color: lightgray;
+}
+
+button {
+    background: darkblue;
+    color: whitesmoke;
+    width: 200px;
+    height: 50px;
+    margin: 10px;
+    border: none;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: blue;
+    color: whitesmoke;
+    width: 200px;
+    height: 50px;
+    margin: 10px;
+    border: none;
+    transition: 0.3s;
+}
+
+.new-elements,
+.upload-files {
+    display: flex;
+    flex-direction: column;
+    margin: 50px 10px;
+}
+
+.upload-files {
+    background-color: white;
+}
+
+.upload-button {
+    background: lightgray;
+    color: darkblue;
+    transition: 0.3s;
+}
+
+.upload-button:hover {
+    transition: 0.3s;
+    background: gray;
+}
