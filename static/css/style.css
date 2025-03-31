@@ -23,7 +23,8 @@ main {
     background-color: lightgray;
 }
 
-button {
+.main-button,
+.upload-button {
     background: darkblue;
     color: whitesmoke;
     width: 200px;
@@ -33,7 +34,7 @@ button {
     transition: 0.3s;
 }
 
-button:hover {
+.main-button:hover {
     background: blue;
     color: whitesmoke;
     width: 200px;

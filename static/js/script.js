@@ -21,6 +21,13 @@ const addFolder = () => {
         folderInput.placeholder = 'File name'
         folderForm.appendChild(folderInput)
 
+        const folderButtonCreate = document.createElement('button')
+        folderForm.appendChild(folderButtonCreate)
+
+        const folderButtonCancel = document.createElement('button')
+        folderButtonCancel.textContent = 'Cancel'
+        folderForm.appendChild(folderButtonCancel)
+
         dialog.id = 'dialog'
         dialog.setAttribute('open', 'open');
         dialog.appendChild(folderP);
