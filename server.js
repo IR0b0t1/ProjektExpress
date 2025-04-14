@@ -64,11 +64,11 @@ function fileExists(filepath, fileIndex) {
 app.get("/", function (req, res) {
     let dirArr = [];
     let fileArr = [];
-    fs.readdir(`${__dirname}\\upload`, (err, files) => {
+    fs.readdir(`${__dirname}\\FILES`, (err, files) => {
         if (err) throw err
 
         files.forEach((file) => {
-            fs.lstat(`upload/${file}`, (err, stats) => {
+            fs.lstat(`FILES/${file}`, (err, stats) => {
                 if (err) throw err
                 if (stats.isDirectory() == true) {
                     dirArr.push(file);
@@ -89,7 +89,7 @@ app.post("/addFolder", function (req, res) {
     let dirIndex = 0;
     console.log('addFolder');
     console.log(req.body);
-    let filepath = path.join(__dirname, "upload", req.body.name);
+    let filepath = path.join(__dirname, "FILES", req.body.name);
     console.log(filepath);
     try {
         fs.mkdirSync(filepath);
@@ -108,7 +108,7 @@ app.post("/addFile", function (req, res) {
     console.log('addFile');
     console.log(req.body);
     let fileName = req.body.name + req.body.extension;
-    const filepath = path.join(__dirname, "upload", fileName);
+    const filepath = path.join(__dirname, "FILES", fileName);
     console.log(filepath);
     if (fs.existsSync(filepath)) {
         fileExists(filepath, fileIndex);
@@ -129,7 +129,7 @@ app.post("/uploadMultipleFiles", function (req, res) {
         console.log('addFile');
         console.log(upload);
         let fileName = upload;
-        const filepath = path.join(__dirname, "upload", fileName);
+        const filepath = path.join(__dirname, "FILES", fileName);
         console.log(filepath);
         if (fs.existsSync(filepath)) {
             fileExists(filepath, fileIndex);
@@ -140,6 +140,16 @@ app.post("/uploadMultipleFiles", function (req, res) {
             })
         }
     })
+    res.redirect('/');
+})
+
+app.get("/deleteDir", function (req, res) {
+    console.log('Dir')
+    res.redirect('/');
+})
+
+app.get("/deleteFile", function (req, res) {
+    console.log('File')
     res.redirect('/');
 })
 
