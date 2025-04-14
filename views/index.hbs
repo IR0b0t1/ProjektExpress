@@ -8,18 +8,38 @@
             <button class="main-button" onclick="addFile()">New file</button>
         </div>
         <div class="upload-files">
-            <button class="main-button">Select files to upload</button>
-            <button class="upload-button">Upload</button>
+            <form method="POST" action="/uploadMultipleFiles">
+                <input type="file" multiple required accept="*" name="upload" class="main-button">
+                <button class="upload-button" onclick="">Upload</button>
+            </form>
         </div>
     </div>
     <div class="display-data">
         <div class="folder-display-box">
-            <h2>Folders</h2>
-            <div class="folder-display"></div>
+            <div class="headerDiv">
+                <h2>Folders</h2>
+            </div>
+            <div class="folder-display">
+                {{#each folders}}
+                <div class="displayUpload">
+                    <p>{{this}}</p>
+                    <a href="#">x</a>
+                </div>
+                {{/each}}
+            </div>
         </div>
         <div class="file-display-box">
-            <h2>Files</h2>
-            <div class="file-display"></div>
+            <div class="headerDiv">
+                <h2>Files</h2>
+            </div>
+            <div class="file-display">
+                {{#each files}}
+                <div class="displayUpload">
+                    <p>{{this}}</p>
+                    <a href="#">x</a>
+                </div>
+                {{/each}}
+            </div>
         </div>
     </div>
 </main>

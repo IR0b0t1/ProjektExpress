@@ -1,9 +1,9 @@
-const express = require("express")
+const express = require("express");
 const hbs = require('express-handlebars');
-const app = express()
+const app = express();
 const PORT = 3000;
 const path = require("path");
-const fs = require("fs")
+const fs = require("fs");
 app.set('views', path.join(__dirname, 'views'));
 app.engine('hbs', hbs({ defaultLayout: 'main.hbs' }));
 app.set('view engine', 'hbs');
@@ -11,41 +11,39 @@ app.use(express.urlencoded({
     extended: true
 }));
 
-let context = ""
-const dirArr = []
-const fileArr = []
+let context = {};
 
 function dirExists(filepath, dirIndex) {
     if (dirIndex == 0) {
-        dirIndex += 1
-        filepath = `${filepath} (${dirIndex})`
+        dirIndex += 1;
+        filepath = `${filepath} (${dirIndex})`;
     } else {
-        dirIndex += 1
-        filepath = filepath.slice(0, -4)
-        filepath = `${filepath} (${dirIndex})`
+        dirIndex += 1;
+        filepath = filepath.slice(0, -4);
+        filepath = `${filepath} (${dirIndex})`;
     }
     try {
-        fs.mkdirSync(filepath)
+        fs.mkdirSync(filepath);
     }
     catch (err) {
-        console.log(err.code)
+        console.log(err.code);
         if (err.code == 'EEXIST') {
-            console.log(dirIndex)
-            dirExists(filepath, dirIndex)
+            console.log(dirIndex);
+            dirExists(filepath, dirIndex);
         }
     }
 }
 
 function fileExists(filepath, fileIndex) {
-    let fileArr = filepath.split('.')
-    console.log(fileArr)
+    let fileArr = filepath.split('.');
+    console.log(fileArr);
     if (fileIndex == 0) {
-        fileIndex += 1
-        filepath = `${fileArr[0]} (${fileIndex}).${fileArr[1]}`
+        fileIndex += 1;
+        filepath = `${fileArr[0]} (${fileIndex}).${fileArr[1]}`;
     } else {
-        fileIndex += 1
-        filepath = fileArr[0].slice(0, -4)
-        filepath = `${fileArr[0]} (${fileIndex}).${fileArr[1]}`
+        fileIndex += 1;
+        filepath = fileArr[0].slice(0, -4);
+        filepath = `${fileArr[0]} (${fileIndex}).${fileArr[1]}`;
     }
     try {
         fs.writeFile(filepath, '', (err) => {
@@ -54,33 +52,33 @@ function fileExists(filepath, fileIndex) {
         })
     }
     catch (err) {
-        console.log(err.code)
+        console.log(err.code);
         if (err.code == 'EEXIST') {
-            console.log(fileIndex)
-            fileExists(filepath, fileIndex)
+            console.log(fileIndex);
+            fileExists(filepath, fileIndex);
         }
     }
 }
 
 // GET-y
 app.get("/", function (req, res) {
+    let dirArr = [];
+    let fileArr = [];
     fs.readdir(`${__dirname}\\upload`, (err, files) => {
         if (err) throw err
-        console.log("lista", files);
 
         files.forEach((file) => {
             fs.lstat(`upload/${file}`, (err, stats) => {
                 if (err) throw err
-                console.log(file, stats.isDirectory());
                 if (stats.isDirectory() == true) {
-                    console.log('true')
-                    dirArr.push(file)
+                    dirArr.push(file);
                 } else {
-                    console.log('false')
-                    fileArr.push(file)
+                    fileArr.push(file);
                 }
-                console.log(`Dirs: ${dirArr}`)
-                console.log(`Files: ${fileArr}`)
+                dirArr = dirArr.sort()
+                fileArr = fileArr.sort()
+                context.folders = dirArr;
+                context.files = fileArr;
             })
         })
     })
@@ -102,14 +100,15 @@ app.post("/addFolder", function (req, res) {
             dirExists(filepath, dirIndex);
         }
     }
-    res.render('index.hbs', context);
+    res.redirect('/');
 })
 
 app.post("/addFile", function (req, res) {
     let fileIndex = 0;
     console.log('addFile');
     console.log(req.body);
-    const filepath = path.join(__dirname, "upload", req.body.name);
+    let fileName = req.body.name + req.body.extension;
+    const filepath = path.join(__dirname, "upload", fileName);
     console.log(filepath);
     if (fs.existsSync(filepath)) {
         fileExists(filepath, fileIndex);
@@ -119,8 +118,29 @@ app.post("/addFile", function (req, res) {
             console.log("plik nadpisany");
         })
     }
+    res.redirect('/');
+})
 
-    res.render('index.hbs', context);
+app.post("/uploadMultipleFiles", function (req, res) {
+    const uploads = req.body.upload
+    console.log(uploads)
+    uploads.forEach((upload) => {
+        let fileIndex = 0;
+        console.log('addFile');
+        console.log(upload);
+        let fileName = upload;
+        const filepath = path.join(__dirname, "upload", fileName);
+        console.log(filepath);
+        if (fs.existsSync(filepath)) {
+            fileExists(filepath, fileIndex);
+        } else {
+            fs.writeFile(filepath, '', (err) => {
+                if (err) throw err
+                console.log("plik nadpisany");
+            })
+        }
+    })
+    res.redirect('/');
 })
 
 // app.get("*", function (req, res) {
@@ -128,9 +148,9 @@ app.post("/addFile", function (req, res) {
 // })
 
 // Static
-app.use(express.static('static'))
+app.use(express.static('static'));
 
 // Listening
 app.listen(PORT, function () {
-    console.log("Serwer aktywowany na porcie: " + PORT)
+    console.log("Serwer aktywowany na porcie: " + PORT);
 })
