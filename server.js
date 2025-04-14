@@ -36,23 +36,28 @@ function dirExists(filepath, dirIndex) {
     }
 }
 
-function fileExists(filepath, dirIndex) {
-    if (dirIndex == 0) {
-        dirIndex += 1
-        filepath = `${filepath} (${dirIndex})`
+function fileExists(filepath, fileIndex) {
+    let fileArr = filepath.split('.')
+    console.log(fileArr)
+    if (fileIndex == 0) {
+        fileIndex += 1
+        filepath = `${fileArr[0]} (${fileIndex}).${fileArr[1]}`
     } else {
-        dirIndex += 1
-        filepath = filepath.slice(0, -4)
-        filepath = `${filepath} (${dirIndex})`
+        fileIndex += 1
+        filepath = fileArr[0].slice(0, -4)
+        filepath = `${fileArr[0]} (${fileIndex}).${fileArr[1]}`
     }
     try {
-        fs.mkdirSync(filepath)
+        fs.writeFile(filepath, '', (err) => {
+            if (err) throw err
+            console.log("plik nadpisany");
+        })
     }
     catch (err) {
         console.log(err.code)
         if (err.code == 'EEXIST') {
-            console.log(dirIndex)
-            dirExists(filepath, dirIndex)
+            console.log(fileIndex)
+            fileExists(filepath, fileIndex)
         }
     }
 }
@@ -84,29 +89,30 @@ app.get("/", function (req, res) {
 
 app.post("/addFolder", function (req, res) {
     let dirIndex = 0;
-    console.log('addFolder')
-    console.log(req.body)
-    let filepath = path.join(__dirname, "upload", req.body.name)
-    console.log(filepath)
+    console.log('addFolder');
+    console.log(req.body);
+    let filepath = path.join(__dirname, "upload", req.body.name);
+    console.log(filepath);
     try {
-        fs.mkdirSync(filepath)
+        fs.mkdirSync(filepath);
     }
     catch (err) {
-        console.log(err.code)
+        console.log(err.code);
         if (err.code == 'EEXIST') {
-            dirExists(filepath, dirIndex)
+            dirExists(filepath, dirIndex);
         }
     }
-    res.render('index.hbs', context)
+    res.render('index.hbs', context);
 })
 
 app.post("/addFile", function (req, res) {
-    console.log('addFile')
-    console.log(req.body)
-    const filepath = path.join(__dirname, "upload", req.body.name)
-    console.log(filepath)
+    let fileIndex = 0;
+    console.log('addFile');
+    console.log(req.body);
+    const filepath = path.join(__dirname, "upload", req.body.name);
+    console.log(filepath);
     if (fs.existsSync(filepath)) {
-        console.log("plik istnieje");
+        fileExists(filepath, fileIndex);
     } else {
         fs.writeFile(filepath, '', (err) => {
             if (err) throw err
@@ -114,7 +120,7 @@ app.post("/addFile", function (req, res) {
         })
     }
 
-    res.render('index.hbs', context)
+    res.render('index.hbs', context);
 })
 
 // app.get("*", function (req, res) {
