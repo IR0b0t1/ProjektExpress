@@ -1,30 +1,39 @@
 <header>
-    <h1>Filemanager cz.1 - file system cz.1</h1>
+    <h1>Filemanager cz.2 - file system cz.2</h1>
 </header>
-<main>
+<main data-root="{{root}}">
     <div class="left-menu">
         <div class="new-elements">
             <button class="main-button" onclick="addFolder()">New folder</button>
             <button class="main-button" onclick="addFile()">New file</button>
+            <button class="main-button" onclick="renameFolder('{{this.name}}')">Rename folder</button>
         </div>
         <div class="upload-files">
-            <form method="POST" action="/uploadMultipleFiles">
+            <form method="POST" action="/uploadMultipleFiles" enctype="multipart/form-data">
+                <input type="hidden" name="root" value="{{root}}">
                 <input type="file" multiple required accept="*" name="upload" class="main-button">
-                <button class="upload-button" onclick="">Upload</button>
+                <button class="upload-button">Upload</button>
             </form>
         </div>
     </div>
     <div class="display-data">
+        <nav class="breadcrumb">
+            <a href="/browse?root=FILES">FILES</a>
+            {{#each (splitPath root)}}
+                {{#if @index}} &rarr; <a href="/browse?root={{this.path}}">{{this.name}}</a>{{/if}}
+            {{/each}}
+        </nav>
         <div class="folder-display-box">
             <div class="headerDiv">
                 <h2>Folders</h2>
             </div>
             <div class="folder-display">
                 {{#each folders}}
-                <div class="displayUpload">
-                    <p>{{this}}</p>
-                    <a href="/deleteDir">x</a>
-                </div>
+                    <div class="displayUpload">
+                        <a href="/browse?root={{../root}}/{{this}}">{{this}}</a>
+                        <a href="/deleteDir?dir={{this}}&root={{../root}}">x</a>
+                        <a href="/downloadDir?dir={{this}}&root={{../root}}">V</a>
+                    </div>
                 {{/each}}
             </div>
         </div>
@@ -36,7 +45,8 @@
                 {{#each files}}
                 <div class="displayUpload">
                     <p>{{this}}</p>
-                    <a href="/deleteFile">x</a>
+                    <a href="/deleteFile?file={{this}}&root={{../root}}">x</a>
+                    <a href="/downloadFile?file={{this}}&root={{../root}}">V</a>
                 </div>
                 {{/each}}
             </div>

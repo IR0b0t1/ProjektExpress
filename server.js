@@ -1,15 +1,33 @@
 const express = require("express");
 const hbs = require('express-handlebars');
+const archiver = require('archiver');
 const app = express();
 const PORT = 3000;
 const path = require("path");
 const fs = require("fs");
 app.set('views', path.join(__dirname, 'views'));
-app.engine('hbs', hbs({ defaultLayout: 'main.hbs' }));
+app.engine('hbs', hbs({
+    defaultLayout: 'main.hbs',
+    helpers: {
+        splitPath: function (pathStr) {
+            const parts = pathStr.split('/');
+            let result = [];
+            let accumulated = "";
+            parts.forEach((part, index) => {
+                accumulated += (index === 0 ? "" : "/") + part;
+                result.push({ name: part, path: accumulated });
+            });
+            return result;
+        }
+    }
+}));
 app.set('view engine', 'hbs');
 app.use(express.urlencoded({
     extended: true
 }));
+
+// Static
+app.use(express.static('static'));
 
 let context = {};
 
@@ -61,36 +79,49 @@ function fileExists(filepath, fileIndex) {
 }
 
 // GET-y
-app.get("/", function (req, res) {
+app.get(["/", "/browse"], function (req, res) {
+    let root = req.query.root || "FILES";
     let dirArr = [];
     let fileArr = [];
-    fs.readdir(`${__dirname}\\FILES`, (err, files) => {
-        if (err) throw err
 
-        files.forEach((file) => {
-            fs.lstat(`FILES/${file}`, (err, stats) => {
-                if (err) throw err
-                if (stats.isDirectory() == true) {
-                    dirArr.push(file);
-                } else {
-                    fileArr.push(file);
-                }
-                dirArr = dirArr.sort()
-                fileArr = fileArr.sort()
-                context.folders = dirArr;
-                context.files = fileArr;
-            })
-        })
-    })
-    res.render('index.hbs', context);
-})
+    fs.readdir(path.join(__dirname, root), (err, files) => {
+        if (err) throw err;
+
+        let statPromises = files.map(file => {
+            return new Promise((resolve) => {
+                let fullPath = path.join(__dirname, root, file);
+                fs.lstat(fullPath, (err, stats) => {
+                    if (err) return resolve();
+                    if (stats.isDirectory()) dirArr.push(file);
+                    else fileArr.push(file);
+                    resolve();
+                });
+            });
+        });
+
+        Promise.all(statPromises).then(() => {
+            dirArr.sort();
+            fileArr.sort();
+            context = {
+                folders: dirArr,
+                files: fileArr,
+                root: root
+            };
+            console.log(context)
+            res.render('index.hbs', context);
+        });
+    });
+});
 
 app.post("/addFolder", function (req, res) {
     let dirIndex = 0;
     console.log('addFolder');
     console.log(req.body);
-    let filepath = path.join(__dirname, "FILES", req.body.name);
+    const root = req.body.root || "FILES";
+    const folderName = req.body.name;
+    const filepath = path.join(__dirname, root, folderName);
     console.log(filepath);
+
     try {
         fs.mkdirSync(filepath);
     }
@@ -100,35 +131,55 @@ app.post("/addFolder", function (req, res) {
             dirExists(filepath, dirIndex);
         }
     }
-    res.redirect('/');
-})
+    res.redirect(`/browse?root=${root}`);
+});
 
 app.post("/addFile", function (req, res) {
     let fileIndex = 0;
     console.log('addFile');
     console.log(req.body);
-    let fileName = req.body.name + req.body.extension;
-    const filepath = path.join(__dirname, "FILES", fileName);
+    const root = req.body.root || "FILES";
+    const fileName = req.body.name + req.body.extension;
+    const filepath = path.join(__dirname, root, fileName);
     console.log(filepath);
+
     if (fs.existsSync(filepath)) {
         fileExists(filepath, fileIndex);
     } else {
         fs.writeFile(filepath, '', (err) => {
-            if (err) throw err
-            console.log("plik nadpisany");
-        })
+            if (err) throw err;
+            console.log("plik zapisany");
+        });
     }
-    res.redirect('/');
-})
+    res.redirect(`/browse?root=${root}`);
+});
 
 app.post("/uploadMultipleFiles", function (req, res) {
     const uploads = req.body.upload
     console.log(uploads)
-    uploads.forEach((upload) => {
+    console.log(Array.isArray(uploads))
+    if (Array.isArray(uploads) == true) {
+        uploads.forEach((upload) => {
+            let fileIndex = 0;
+            console.log('addFile');
+            console.log(upload);
+            let fileName = upload;
+            const filepath = path.join(__dirname, "FILES", fileName);
+            console.log(filepath);
+            if (fs.existsSync(filepath)) {
+                fileExists(filepath, fileIndex);
+            } else {
+                fs.writeFile(filepath, '', (err) => {
+                    if (err) throw err
+                    console.log("plik nadpisany");
+                })
+            }
+        })
+    } else {
         let fileIndex = 0;
         console.log('addFile');
-        console.log(upload);
-        let fileName = upload;
+        console.log(uploads);
+        let fileName = uploads;
         const filepath = path.join(__dirname, "FILES", fileName);
         console.log(filepath);
         if (fs.existsSync(filepath)) {
@@ -139,26 +190,116 @@ app.post("/uploadMultipleFiles", function (req, res) {
                 console.log("plik nadpisany");
             })
         }
-    })
+    }
     res.redirect('/');
 })
 
 app.get("/deleteDir", function (req, res) {
-    console.log('Dir')
-    res.redirect('/');
-})
+    const dir = req.query.dir;
+    const root = req.query.root || "FILES";
+    const filepath = path.join(__dirname, root, dir);
+    console.log(`Usuwanie katalogu: ${filepath}`);
+
+    fs.rmdir(filepath, { recursive: true }, (err) => {
+        if (err) throw err;
+        console.log(`Usunięto katalog: ${filepath}`);
+        res.redirect(`/browse?root=${root}`);
+    });
+});
 
 app.get("/deleteFile", function (req, res) {
-    console.log('File')
-    res.redirect('/');
+    const file = req.query.file;
+    const root = req.query.root || "FILES";
+    const filepath = path.join(__dirname, root, file);
+    console.log(`Usuwanie pliku: ${filepath}`);
+
+    fs.unlink(filepath, (err) => {
+        if (err) throw err;
+        console.log(`Usunięto plik: ${filepath}`);
+        res.redirect(`/browse?root=${root}`);
+    });
+});
+
+app.get("/downloadFile", function (req, res) {
+    const file = req.query.file;
+    const root = req.query.root || "FILES";
+    const filepath = path.join(__dirname, root, file);
+    console.log(`Pobieranie pliku: ${filepath}`);
+
+    res.download(filepath, (err) => {
+        if (err) throw err
+        console.log(`Pobrano plik: ${filepath}`);
+    })
 })
 
-// app.get("*", function (req, res) {
-//     res.render('404.hbs', context);
-// })
+app.get("/downloadDir", function (req, res) {
+    const dir = req.query.dir;
+    const root = req.query.root || "FILES";
+    const dirPath = path.join(__dirname, root, dir);
+    const zipName = `${dir}.zip`;
 
-// Static
-app.use(express.static('static'));
+    res.setHeader('Content-Disposition', `attachment; filename=${zipName}`);
+    res.setHeader('Content-Type', 'application/zip');
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (err) => {
+        console.error(`Błąd archiwizacji: ${err.message}`);
+        res.status(500).send("Błąd tworzenia archiwum");
+    });
+
+    archive.pipe(res);
+    archive.directory(dirPath, false);
+    archive.finalize();
+
+    console.log(`Rozpoczęto pakowanie folderu: ${dirPath}`);
+});
+
+app.post("/renameFolder", function (req, res) {
+    console.log('req.body');
+    console.log(req.body);
+    const oldName = req.body.oldName;
+    console.log('Old Folder Name:', oldName);
+    const newName = req.body.newName;
+    console.log('New Folder Name:', newName);
+    const root = req.body.root || "FILES";
+    console.log('Root:', root);
+
+    const oldPath = path.join(__dirname, root, oldName);
+    console.log('Old Path:', oldPath);
+    const lastBackslashIndex = oldPath.lastIndexOf("\\");
+    let newPath = oldPath.slice(0, lastBackslashIndex);
+    newPath = path.join(newPath, newName)
+    console.log('New Path:', newPath);
+
+    fs.readdir(path.join(__dirname, root), (err, files) => {
+        if (err) {
+            console.error("Error reading directory:", err);
+            return res.status(500).send("Error reading directory");
+        }
+
+        if (files.includes(newName)) {
+            return res.redirect(`/browse?root=${root}&error=Folder already exists`);
+        }
+
+        fs.rename(oldPath, newPath, (err) => {
+            if (err) {
+                console.error("Error renaming folder:", err);
+                return res.status(500).send("Error renaming folder");
+            }
+            console.log(`Folder renamed from to ${newName}`);
+            return res.redirect(`/`);
+        });
+    });
+});
+
+
+// app.get("*", function (req, res) {
+//     const context = {
+//         page: req.originalUrl
+//     };
+//     console.log('Requested URL:', req.originalUrl);
+//     res.status(404).render('404.hbs', context);
+// });
 
 // Listening
 app.listen(PORT, function () {
