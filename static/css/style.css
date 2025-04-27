@@ -6,12 +6,12 @@
 
 body {
     height: 100vh;
-    background: lightgray;
+    background: #F3F3F3;
 }
 
 header {
     padding: 20px;
-    background-color: whitesmoke;
+    background-color: #FDFDFD;
 }
 
 h1 {
@@ -21,7 +21,7 @@ h1 {
 
 main {
     display: flex;
-    background-color: lightgray;
+    background-color: #F3F3F3;
 }
 
 .main-button,
@@ -33,6 +33,9 @@ main {
     margin: 10px;
     border: none;
     transition: 0.3s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .main-button:hover {
@@ -73,15 +76,13 @@ main {
 .displayUpload {
     width: 100%;
     display: flex;
-    height: 50px;
+    height: auto;
     margin: 10px 0;
     padding: 10px;
     border: 1px solid black;
+    border-radius: 20px;
+    background-color: white;
     justify-content: space-evenly;
-}
-
-.displayUpload:hover {
-    background: lightgray;
 }
 
 .left-menu {
@@ -106,7 +107,76 @@ h2 {
 
 .headerDiv {
     padding: 15px;
-    margin: 20px 0;
-    background: white;
     border-radius: 10px;
+}
+
+.e404 {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+a {
+    text-decoration: none;
+    color: blue;
+}
+
+a:visited {
+    text-decoration: none;
+    color: blue;
+}
+
+.folder-display, .file-display {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+
+img {
+    width: 50px;
+    height: 50px;
+    margin: 10px 0;
+}
+
+.folder-display-box, .file-display-box {
+    background: #F9F9F9;
+    padding: 20px;
+}
+
+.breadcrumb{
+    margin: 10px 0;
+}
+
+.dataDiv {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.multiForm {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.custom-upload-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+#upload {
+    display: none;
+}
+
+.multi-label{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }

@@ -9,18 +9,21 @@
             <button class="main-button" onclick="renameFolder('{{this.name}}')">Rename folder</button>
         </div>
         <div class="upload-files">
-            <form method="POST" action="/uploadMultipleFiles" enctype="multipart/form-data">
+            <form class="multiForm" method="POST" action="/uploadMultipleFiles" enctype="multipart/form-data">
                 <input type="hidden" name="root" value="{{root}}">
-                <input type="file" multiple required accept="*" name="upload" class="main-button">
+                <label class="main-button multi-label" for="upload">Upload files
+                    <span id="file-name" class="file-name-text">No files selected</span>
+                </label>
+                <input id="upload" type="file" multiple required accept="*" name="upload" class="hidden-file-input">
                 <button class="upload-button">Upload</button>
             </form>
         </div>
     </div>
     <div class="display-data">
         <nav class="breadcrumb">
-            <a href="/browse?root=FILES">FILES</a>
+            <a href="/?root=FILES">[ FILES ]</a>
             {{#each (splitPath root)}}
-                {{#if @index}} &rarr; <a href="/browse?root={{this.path}}">{{this.name}}</a>{{/if}}
+                {{#if @index}} &rarr; <a href="/?root={{this.path}}">[ {{this.name}} ]</a>{{/if}}
             {{/each}}
         </nav>
         <div class="folder-display-box">
@@ -30,9 +33,14 @@
             <div class="folder-display">
                 {{#each folders}}
                     <div class="displayUpload">
-                        <a href="/browse?root={{../root}}/{{this}}">{{this}}</a>
-                        <a href="/deleteDir?dir={{this}}&root={{../root}}">x</a>
-                        <a href="/downloadDir?dir={{this}}&root={{../root}}">V</a>
+                        <div class="dataDiv">
+                            <img src="gfx/dir.png" alt="dir image">
+                            <a href="/?root={{../root}}/{{this}}">{{this}}</a>
+                        </div>
+                        <div class="buttonDiv">
+                            <a href="/deleteDir?dir={{this}}&root={{../root}}">[X]</a>
+                            <a href="/downloadDir?dir={{this}}&root={{../root}}">[V]</a>
+                        </div>
                     </div>
                 {{/each}}
             </div>
@@ -44,9 +52,14 @@
             <div class="file-display">
                 {{#each files}}
                 <div class="displayUpload">
-                    <p>{{this}}</p>
-                    <a href="/deleteFile?file={{this}}&root={{../root}}">x</a>
-                    <a href="/downloadFile?file={{this}}&root={{../root}}">V</a>
+                    <div class="dataDiv">
+                        <img src="gfx/file.svg" alt="file image">
+                        <p>{{this}}</p>
+                    </div>
+                    <div class="buttonDiv">
+                        <a href="/deleteFile?file={{this}}&root={{../root}}">[X]</a>
+                        <a href="/downloadFile?file={{this}}&root={{../root}}">[V]</a>
+                    </div>
                 </div>
                 {{/each}}
             </div>
