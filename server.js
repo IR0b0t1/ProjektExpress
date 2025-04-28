@@ -20,6 +20,10 @@ app.engine('hbs', hbs({
                 result.push({ name: part, path: accumulated });
             });
             return result;
+        },
+        imagesType: function (file) {
+            const parts = file.split('.');
+            return `gfx/${parts[1]}.png`;
         }
     }
 }));
@@ -109,6 +113,7 @@ app.get("/", function (req, res) {
                 files: fileArr,
                 root: root
             };
+            console.log(context)
             res.render('index.hbs', context);
         });
     });
@@ -137,17 +142,39 @@ app.post("/addFolder", function (req, res) {
 
 app.post("/addFile", function (req, res) {
     let fileIndex = 0;
+    let content = '';
     console.log('addFile');
     console.log(req.body);
     const root = req.body.root || "FILES";
     const fileName = req.body.name + req.body.extension;
+    console.log(req.body.extension)
     const filepath = path.join(__dirname, root, fileName);
     console.log(filepath);
+    console.log(req.body.extension)
+
+    switch (req.body.extension) {
+        case '.txt':
+            content = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce in eros lorem. Integer sed magna leo. Aliquam accumsan ut ligula id interdum. Curabitur porttitor ac ligula eu faucibus. In ex dolor, fermentum nec eros nec, porta aliquam leo. Sed hendrerit venenatis neque id hendrerit. Nam elementum rhoncus quam at scelerisque. In nec vulputate lorem. Duis lacus mauris, malesuada et leo eu, auctor sagittis magna. Integer eleifend eros at fermentum laoreet. Vivamus porta ex augue, eu consequat magna fermentum at. Etiam vel nisl massa. Phasellus eleifend, orci eu accumsan placerat, odio lectus ornare neque, et rutrum ligula diam sed nibh. Vestibulum gravida risus a arcu condimentum porttitor. Quisque non arcu elit.';
+            break;
+        case '.css':
+            content = '* {\n    padding: 0;\n    margin: 0;\n    box-sizing: border-box;\n}';
+            break;
+        case '.js':
+            content = 'print("Hello World!")';
+            break;
+        case '.json':
+            content = `{\n  name: 'Alan'\n  surname: 'Doe'\n}`
+            break;
+        case '.html':
+            content = '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="UTF-8">\n    <meta http-equiv="X-UA-Compatible" content="IE=edge">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <link rel="stylesheet" href="/css/style.css">\n    <script src="/js/script.js" defer></script>\n    <title>Document</title>\n    </head>\n\n    <body>\n        <h1>Hello world</h1>\n    </body>\n</html>'
+            break;
+    }
+    console.log(content)
 
     if (fs.existsSync(filepath)) {
         fileExists(filepath, fileIndex);
     } else {
-        fs.writeFile(filepath, '', (err) => {
+        fs.writeFile(filepath, content, (err) => {
             if (err) throw err;
             console.log("plik zapisany");
         });
@@ -257,6 +284,10 @@ app.get("/downloadDir", function (req, res) {
 });
 
 app.post("/renameFolder", function (req, res) {
+    if (req.body.root == 'FILES') {
+        console.log('Nie można zmieniać nazwy roota');
+        return res.redirect(`/`);
+    }
     console.log('req.body');
     console.log(req.body);
     const oldName = req.body.oldName;
@@ -295,13 +326,26 @@ app.post("/renameFolder", function (req, res) {
         fs.rename(oldPath, newPath, (err) => {
             if (err) {
                 console.error("Error renaming folder:", err);
-                return res.status(500).send("Error renaming folder");
+                console.log('Error code: ')
+                console.log(err.code)
+                if (err.code == 'EPERM') {
+                    dirExists(oldPath, 0)
+                    console.log(`Folder renamed to ${newName}`);
+                    return res.redirect(`/?root=${newRoot}`);
+                } else {
+                    return res.status(500).send("Error renaming folder");
+                }
             }
             console.log(`Folder renamed to ${newName}`);
             return res.redirect(`/?root=${newRoot}`);
         });
     });
 });
+
+app.get('/editFile', function (req, res) {
+    console.log(req.body)
+    res.render('editor.hbs');
+})
 
 app.get("*", function (req, res) {
     const context = {

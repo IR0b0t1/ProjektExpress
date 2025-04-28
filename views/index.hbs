@@ -1,5 +1,5 @@
 <header>
-    <h1>Filemanager cz.2 - file system cz.2</h1>
+    <h1>Filemanager cz.3 - file editor</h1>
 </header>
 <main data-root="{{root}}">
     <div class="left-menu">
@@ -23,7 +23,7 @@
         <nav class="breadcrumb">
             <a href="/?root=FILES">[ FILES ]</a>
             {{#each (splitPath root)}}
-                {{#if @index}} &rarr; <a href="/?root={{this.path}}">[ {{this.name}} ]</a>{{/if}}
+            {{#if @index}} &rarr; <a href="/?root={{this.path}}">[ {{this.name}} ]</a>{{/if}}
             {{/each}}
         </nav>
         <div class="folder-display-box">
@@ -32,16 +32,18 @@
             </div>
             <div class="folder-display">
                 {{#each folders}}
-                    <div class="displayUpload">
-                        <div class="dataDiv">
-                            <img src="gfx/dir.png" alt="dir image">
-                            <a href="/?root={{../root}}/{{this}}">{{this}}</a>
-                        </div>
-                        <div class="buttonDiv">
-                            <a href="/deleteDir?dir={{this}}&root={{../root}}">[X]</a>
-                            <a href="/downloadDir?dir={{this}}&root={{../root}}">[V]</a>
-                        </div>
+                <div class="display-upload">
+                    <div class="dataDiv">
+                        <img src="gfx/folder.png" alt="dir image">
+                        <a href="/?root={{../root}}/{{this}}">{{this}}</a>
                     </div>
+                    <div class="buttonDiv">
+                        <a href="/deleteDir?dir={{this}}&root={{../root}}"><img src="gfx/delete.png"
+                                alt="download arrow"></a>
+                        <a href="/downloadDir?dir={{this}}&root={{../root}}"><img src="gfx/download.png"
+                                alt="download arrow"></a>
+                    </div>
+                </div>
                 {{/each}}
             </div>
         </div>
@@ -51,14 +53,16 @@
             </div>
             <div class="file-display">
                 {{#each files}}
-                <div class="displayUpload">
+                <div class="display-upload">
                     <div class="dataDiv">
-                        <img src="gfx/file.svg" alt="file image">
-                        <p>{{this}}</p>
+                        <img src={{imagesType this}} alt="file image">
+                        <a href="/editFile?root={{../root}}/{{this}}">{{this}}</a>
                     </div>
                     <div class="buttonDiv">
-                        <a href="/deleteFile?file={{this}}&root={{../root}}">[X]</a>
-                        <a href="/downloadFile?file={{this}}&root={{../root}}">[V]</a>
+                        <a href="/deleteFile?file={{this}}&root={{../root}}"><img src="gfx/delete.png"
+                                alt="download arrow"></a>
+                        <a href="/downloadFile?file={{this}}&root={{../root}}"><img src="gfx/download.png"
+                                alt="download arrow"></a>
                     </div>
                 </div>
                 {{/each}}

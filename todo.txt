@@ -1,0 +1,7 @@
+1. Edytor tekstu
+    1.1. Osobna strona hbs
+    1.2. Dynamiczna numeracja
+    1.3. Motywy
+    1.4. Zmiana nazwy pliku
+    1.5. Zapis pliku
+2. Router (opcj)

@@ -73,23 +73,22 @@ main {
     background: gray;
 }
 
-.displayUpload {
+.display-upload {
     width: 100%;
     display: flex;
     height: auto;
     margin: 10px 0;
-    padding: 10px;
-    border: 1px solid black;
+    padding: 10px 80px;
     border-radius: 20px;
     background-color: white;
     justify-content: space-evenly;
+    justify-content: space-between;
+    transition: 0.5s;
 }
 
-.left-menu {
-    width: 400px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.display-upload:hover {
+    background-color: #EAEAEA;
+    transition: 0.5s;
 }
 
 .display-data {
@@ -127,10 +126,12 @@ a:visited {
     color: blue;
 }
 
-.folder-display, .file-display {
+.folder-display,
+.file-display {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 10px;
+    margin: 10px 30px;
 }
 
 img {
@@ -139,12 +140,13 @@ img {
     margin: 10px 0;
 }
 
-.folder-display-box, .file-display-box {
+.folder-display-box,
+.file-display-box {
     background: #F9F9F9;
     padding: 20px;
 }
 
-.breadcrumb{
+.breadcrumb {
     margin: 10px 0;
 }
 
@@ -174,7 +176,7 @@ img {
     display: none;
 }
 
-.multi-label{
+.multi-label {
     display: flex;
     flex-direction: column;
     justify-content: center;
