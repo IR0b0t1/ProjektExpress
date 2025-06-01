@@ -12,6 +12,54 @@
         </div>
     </div>
     <div class="display-data">
+        <nav class="breadcrumb">
+            <a href="/?root=FILES">[ FILES ]</a>
+            {{#each (splitPathFile root)}}
+            {{#if @index}} &rarr; <a href="/?root={{this.path}}">[ {{this.name}} ]</a>{{/if}}
+            {{/each}}
+        </nav>
+        <div class="edit-window">
+            <div id="numering-column">
+                
+            </div>
+            <textarea id="edit-text">AAAA</textarea>
+            <script>
+                const root = document.querySelector('main').dataset.root;
+                const textvalue = document.getElementById('edit-text').textContent;
+                const textarea = document.getElementById('edit-text');
+                const numeringColumn = document.getElementById("numering-column")
 
+                const data = JSON.stringify({
+                    textContent: textvalue,
+                    root: root,
+                })
+                
+                const options = {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: data
+                };
+
+                fetch("/getFileData", options)
+                    .then(response => response.json())
+                    .then(data => (textarea.value = data.value))
+                    .catch(error => console.log(error));
+
+                textarea.onkeyup = function () {
+                    numeringColumn.innerText = '';
+                    numeringText = ''
+                    const value = textarea.value.split("\n");
+
+                    for(let i=0; i<value.length; i++){
+                        numeringText += `${i+1}\n`;
+                    }
+
+                    numeringColumn.innerText = numeringText;
+                }
+            </script>
+        </div>
+        <div class="upload-button">Save</div>
     </div>
 </main>

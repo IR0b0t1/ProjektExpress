@@ -1,16 +1,17 @@
 const uploadInput = document.getElementById('upload');
 const fileNameText = document.getElementById('file-name');
-
-uploadInput.addEventListener('change', function () {
-    const files = uploadInput.files;
-    if (files.length === 0) {
-        fileNameText.textContent = "No files selected";
-    } else if (files.length === 1) {
-        fileNameText.textContent = `1 file selected`;
-    } else {
-        fileNameText.textContent = `${files.length} files selected`;
-    }
-});
+if (uploadInput) {
+    uploadInput.addEventListener('change', function () {
+        const files = uploadInput.files;
+        if (files.length === 0) {
+            fileNameText.textContent = "No files selected";
+        } else if (files.length === 1) {
+            fileNameText.textContent = `1 file selected`;
+        } else {
+            fileNameText.textContent = `${files.length} files selected`;
+        }
+    });
+};
 
 const addFolder = () => {
     let dialog = document.getElementById('dialog');

@@ -2,10 +2,11 @@ const express = require("express");
 const hbs = require('express-handlebars');
 const archiver = require('archiver');
 const app = express();
-const PORT = 3000;
+const PORT = 5000;
 const path = require("path");
 const fs = require("fs");
 const formidable = require('formidable');
+app.use(express.json());
 
 app.set('views', path.join(__dirname, 'views'));
 app.engine('hbs', hbs({
@@ -19,6 +20,18 @@ app.engine('hbs', hbs({
                 accumulated += (index === 0 ? "" : "/") + part;
                 result.push({ name: part, path: accumulated });
             });
+            return result;
+        },
+        splitPathFile: function (pathStr) {
+            const parts = pathStr.split('/');
+            parts.pop;
+            let result = [];
+            let accumulated = "";
+            parts.forEach((part, index) => {
+                accumulated += (index === 0 ? "" : "/") + part;
+                result.push({ name: part, path: accumulated });
+            });
+            result.pop();
             return result;
         },
         imagesType: function (file) {
@@ -157,16 +170,36 @@ app.post("/addFile", function (req, res) {
             content = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce in eros lorem. Integer sed magna leo. Aliquam accumsan ut ligula id interdum. Curabitur porttitor ac ligula eu faucibus. In ex dolor, fermentum nec eros nec, porta aliquam leo. Sed hendrerit venenatis neque id hendrerit. Nam elementum rhoncus quam at scelerisque. In nec vulputate lorem. Duis lacus mauris, malesuada et leo eu, auctor sagittis magna. Integer eleifend eros at fermentum laoreet. Vivamus porta ex augue, eu consequat magna fermentum at. Etiam vel nisl massa. Phasellus eleifend, orci eu accumsan placerat, odio lectus ornare neque, et rutrum ligula diam sed nibh. Vestibulum gravida risus a arcu condimentum porttitor. Quisque non arcu elit.';
             break;
         case '.css':
-            content = '* {\n    padding: 0;\n    margin: 0;\n    box-sizing: border-box;\n}';
+            content = `* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+}`;
             break;
         case '.js':
-            content = 'print("Hello World!")';
+            content = 'console.log("Hello World!")';
             break;
         case '.json':
-            content = `{\n  name: 'Alan'\n  surname: 'Doe'\n}`
+            content = `{
+    "name": "John",
+    "surname": "Doe"
+}`
             break;
         case '.html':
-            content = '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="UTF-8">\n    <meta http-equiv="X-UA-Compatible" content="IE=edge">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <link rel="stylesheet" href="/css/style.css">\n    <script src="/js/script.js" defer></script>\n    <title>Document</title>\n    </head>\n\n    <body>\n        <h1>Hello world</h1>\n    </body>\n</html>'
+            content = `<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="/css/style.css">
+        <script src="/js/script.js" defer></script>
+        <title>Document</title>
+    </head>
+    <body>
+        <h1>Hello world</h1>
+    </body>
+</html>`
             break;
     }
     console.log(content)
@@ -343,8 +376,31 @@ app.post("/renameFolder", function (req, res) {
 });
 
 app.get('/editFile', function (req, res) {
-    console.log(req.body)
-    res.render('editor.hbs');
+    context = {}
+    console.log(req.query);
+    let root = req.query.root
+    console.log(root);
+    context.root = root;
+    console.log(context);
+    res.render('editor.hbs', context);
+})
+
+app.post('/getFileData', function (req, res) {
+    const data = req.body;
+    const root = data.root;
+    console.log('data');
+    console.log(data);
+    fs.readFile(root, (err, data) => {
+        if (err) throw err;
+        console.log("Data from file: ")
+        console.log(data.toString());
+        textvalue = data.toString();
+        res.json({ value: textvalue })
+    })
+})
+
+app.post('/saveFileData', function (req, res) {
+    const data = req.body;
 })
 
 app.get("*", function (req, res) {
