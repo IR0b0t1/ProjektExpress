@@ -93,6 +93,7 @@ main {
 
 .display-data {
     width: 100%;
+    padding-left: 10px;
 }
 
 h2 {
@@ -189,7 +190,8 @@ img {
 
 #numering-column{
     width: auto;
-    font-size: 15px;
+    height: auto;
+    background-color: white;
 }
 
 .edit-form{
@@ -200,8 +202,43 @@ img {
 }
 
 #edit-text{
-    width: 30%;
+    width: 50%;
     height: 300px;
-    font-size: 15px;
+}
+
+#numering-column,
+#edit-text {
+    font-size: 18px;
+    background-color: cornflowerblue;
+    font-family: monospace;
+    line-height: 1.5;
+    border: 1px solid black;
+    padding: 0 10px;
+}
+
+.color-button-div{
+    display: grid;
+    grid-template-columns: 25% 50% 25%;
+    width: 200px;
+}
+
+.motive-button-secondary,
+.motive-button-main {
+    background: darkblue;
+    color: whitesmoke;
+    height: 50px;
     border: none;
+    transition: 0.3s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 0 10px 0;
+}
+
+.motive-button-secondary:hover,
+.motive-button-main:hover {
+    background: cornflowerblue;
+    color: whitesmoke;
+    border: none;
+    transition: 0.3s;
 }

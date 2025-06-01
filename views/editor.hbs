@@ -5,7 +5,9 @@
     <div class="left-menu">
         <div class="new-elements">
             <div class="color-button-div">
-                <button class="main-button" onclick="colors()">-</button>
+                <button class="motive-button-secondary" onclick="fontLower()">-</button>
+                <button class="motive-button-main" onclick="motive()">Motyw</button>
+                <button class="motive-button-secondary" onclick="fontUpper()">+</button>
             </div>
             <button class="main-button" onclick="addFile()">Save config</button>
             <button class="main-button" onclick="renameFile('{{this.name}}')">Rename file</button>
@@ -13,7 +15,7 @@
     </div>
     <div class="display-data">
         <nav class="breadcrumb">
-            <a href="/?root=FILES">[ FILES ]</a>
+            <a href="/?root=USER_DATA">[ USER_DATA ]</a>
             {{#each (splitPathFile root)}}
             {{#if @index}} &rarr; <a href="/?root={{this.path}}">[ {{this.name}} ]</a>{{/if}}
             {{/each}}
@@ -22,44 +24,162 @@
             <div id="numering-column">
                 
             </div>
-            <textarea id="edit-text">AAAA</textarea>
-            <script>
-                const root = document.querySelector('main').dataset.root;
-                const textvalue = document.getElementById('edit-text').textContent;
-                const textarea = document.getElementById('edit-text');
-                const numeringColumn = document.getElementById("numering-column")
-
-                const data = JSON.stringify({
-                    textContent: textvalue,
-                    root: root,
-                })
-                
-                const options = {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: data
-                };
-
-                fetch("/getFileData", options)
-                    .then(response => response.json())
-                    .then(data => (textarea.value = data.value))
-                    .catch(error => console.log(error));
-
-                textarea.onkeyup = function () {
-                    numeringColumn.innerText = '';
-                    numeringText = ''
-                    const value = textarea.value.split("\n");
-
-                    for(let i=0; i<value.length; i++){
-                        numeringText += `${i+1}\n`;
-                    }
-
-                    numeringColumn.innerText = numeringText;
-                }
-            </script>
+            <textarea id="edit-text"></textarea>
+            
         </div>
-        <div class="upload-button">Save</div>
+        <div class="upload-button" id="save-button" style="margin-left: 0;">Save</div>
     </div>
+    <script>
+        const root = document.querySelector('main').dataset.root;
+        const textarea = document.getElementById('edit-text');
+        const numeringColumn = document.getElementById("numering-column")
+        const saveButton = document.getElementById('save-button');
+        let motiveNumber = 0;
+
+        let data = JSON.stringify({
+            root: root,
+        })
+                
+        const options = {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+               },
+            body: data
+        };
+
+        function autoResizeTextarea() {
+            textarea.style.height = 'auto';
+            numeringColumn.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 2 + 'px';
+            numeringColumn.style.height = numeringColumn.scrollHeight + 2 + 'px';
+        }
+
+        fetch("/getFileData", options)
+            .then(response => response.json())
+            .then(data => {
+                textarea.value = data.value
+                numeringColumn.innerText = '';
+                numeringText = ''
+
+                for(let i=0; i<data.lines; i++){
+                    numeringText += `${i+1}\n`;
+                }
+
+                numeringColumn.innerText = numeringText;
+                autoResizeTextarea();
+            })
+            .catch(error => console.log(error))
+
+        textarea.onkeyup = function () {
+            numeringColumn.innerText = '';
+            numeringText = ''
+            const value = textarea.value.split("\n");
+
+            for(let i=0; i<value.length; i++){
+                numeringText += `${i+1}\n`;
+            }
+
+            numeringColumn.innerText = numeringText;
+            autoResizeTextarea();
+        }
+
+        saveButton.onclick = function() {
+            const editedText = textarea.value;
+
+            data = JSON.stringify({
+                root: root,
+                value: editedText,
+            })
+            
+            const options = {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: data
+            };
+
+            fetch('/saveFileData', options)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("File saved successfully!");
+                } else {
+                    alert("Failed to save file.");
+                }
+            })
+            .catch(error => {
+                console.error('Save error:', error);
+                alert("An error occurred while saving.");
+            });
+        };
+
+        const fontLower = () => {
+            console.log("Small");
+
+            const currentFontSizeText = window.getComputedStyle(textarea).fontSize;
+            const currentFontSizeNum = parseFloat(currentFontSizeText);
+
+            const newFontSize = Math.max(currentFontSizeNum - 1, 8);
+
+            textarea.style.fontSize = newFontSize + 'px';
+            numeringColumn.style.fontSize = newFontSize + 'px';
+
+            autoResizeTextarea();
+        };
+
+        const fontUpper = () => {
+            console.log("Big");
+
+            const currentFontSizeText = window.getComputedStyle(textarea).fontSize;
+            const currentFontSizeNum = parseFloat(currentFontSizeText);
+
+            const newFontSize = Math.max(currentFontSizeNum + 1, 8);
+
+            textarea.style.fontSize = newFontSize + 'px';
+            numeringColumn.style.fontSize = newFontSize + 'px';
+
+            autoResizeTextarea();
+        }
+
+        const motiveList = {
+            "1": {
+                "background" : "white",
+                "color" : "black", 
+                "fontFamily" : "'Courier New', Courier, monospace",
+                "border" : "1px solid smokewhite",
+            },
+            "2": {
+                "background" : "black",
+                "color": "white",
+                "fontFamily" : "'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif",
+                "border" : "1px solid #1F2024",
+            },
+            "3": {
+                "background" : "cornflowerblue",
+                "color": "white",
+                "fontFamily" : "'Times New Roman', Times, serif",
+                "border" : "1px solid #585EFC",
+            }
+        }
+
+        const motive = () => {
+            if (motiveNumber < 3)
+                motiveNumber += 1;
+            else
+                motiveNumber = 1;
+            
+            const currentMotive = motiveList[motiveNumber];
+
+            textarea.style.background = currentMotive.background;
+            numeringColumn.style.background = currentMotive.background;
+            textarea.style.color = currentMotive.color;
+            numeringColumn.style.color = currentMotive.color;
+            textarea.style.fontFamily = currentMotive.fontFamily;
+            numeringColumn.style.fontFamily = currentMotive.fontFamily;
+            textarea.style.border = currentMotive.border;
+            numeringColumn.style.border = currentMotive.border;
+        }
+    </script>
 </main>

@@ -7,6 +7,7 @@ const path = require("path");
 const fs = require("fs");
 const formidable = require('formidable');
 app.use(express.json());
+const mainRoot = "USER_DATA";
 
 app.set('views', path.join(__dirname, 'views'));
 app.engine('hbs', hbs({
@@ -99,7 +100,7 @@ function fileExists(filepath, fileIndex) {
 
 // GET-y
 app.get("/", function (req, res) {
-    let root = req.query.root || "FILES";
+    let root = req.query.root || mainRoot;
     let dirArr = [];
     let fileArr = [];
 
@@ -136,7 +137,7 @@ app.post("/addFolder", function (req, res) {
     let dirIndex = 0;
     console.log('addFolder');
     console.log(req.body);
-    const root = req.body.root || "FILES";
+    const root = req.body.root || mainRoot;
     const folderName = req.body.name;
     const filepath = path.join(__dirname, root, folderName);
     console.log(filepath);
@@ -158,7 +159,7 @@ app.post("/addFile", function (req, res) {
     let content = '';
     console.log('addFile');
     console.log(req.body);
-    const root = req.body.root || "FILES";
+    const root = req.body.root || mainRoot;
     const fileName = req.body.name + req.body.extension;
     console.log(req.body.extension)
     const filepath = path.join(__dirname, root, fileName);
@@ -227,7 +228,7 @@ app.post('/uploadMultipleFiles', function (req, res) {
         console.log('FIELDS:', fields);
         console.log('FILES:', files);
 
-        const root = fields.root || "FILES";
+        const root = fields.root || mainRoot;
         let uploadedFiles = files.upload;
 
         if (!Array.isArray(uploadedFiles)) {
@@ -258,7 +259,7 @@ app.post('/uploadMultipleFiles', function (req, res) {
 
 app.get("/deleteDir", function (req, res) {
     const dir = req.query.dir;
-    const root = req.query.root || "FILES";
+    const root = req.query.root || mainRoot;
     const filepath = path.join(__dirname, root, dir);
     console.log(`Usuwanie katalogu: ${filepath}`);
 
@@ -271,7 +272,7 @@ app.get("/deleteDir", function (req, res) {
 
 app.get("/deleteFile", function (req, res) {
     const file = req.query.file;
-    const root = req.query.root || "FILES";
+    const root = req.query.root || mainRoot;
     const filepath = path.join(__dirname, root, file);
     console.log(`Usuwanie pliku: ${filepath}`);
 
@@ -284,7 +285,7 @@ app.get("/deleteFile", function (req, res) {
 
 app.get("/downloadFile", function (req, res) {
     const file = req.query.file;
-    const root = req.query.root || "FILES";
+    const root = req.query.root || mainRoot;
     const filepath = path.join(__dirname, root, file);
     console.log(`Pobieranie pliku: ${filepath}`);
 
@@ -296,7 +297,7 @@ app.get("/downloadFile", function (req, res) {
 
 app.get("/downloadDir", function (req, res) {
     const dir = req.query.dir;
-    const root = req.query.root || "FILES";
+    const root = req.query.root || mainRoot;
     const dirPath = path.join(__dirname, root, dir);
     const zipName = `${dir}.zip`;
 
@@ -327,7 +328,7 @@ app.post("/renameFolder", function (req, res) {
     console.log('Old Folder Name:', oldName);
     const newName = req.body.newName;
     console.log('New Folder Name:', newName);
-    const root = req.body.root || "FILES";
+    const root = req.body.root || mainRoot;
     console.log('Root:', root);
 
     const oldPath = path.join(__dirname, root, oldName);
@@ -386,22 +387,48 @@ app.get('/editFile', function (req, res) {
 })
 
 app.post('/getFileData', function (req, res) {
-    const data = req.body;
-    const root = data.root;
-    console.log('data');
-    console.log(data);
-    fs.readFile(root, (err, data) => {
-        if (err) throw err;
-        console.log("Data from file: ")
-        console.log(data.toString());
-        textvalue = data.toString();
-        res.json({ value: textvalue })
-    })
-})
+    const root = req.body.root;
+
+    if (!root) {
+        return res.status(400).json({ error: 'No file path provided' });
+    }
+
+    fs.readFile(root, 'utf8', (err, data) => {
+        if (err) {
+            console.error('File read error:', err);
+            return res.status(500).json({ error: 'Failed to read file' });
+        }
+
+        console.log("Data from file:\n", data);
+        const value = data.split("\n");
+        res.json({
+            value: data,
+            lines: value.length
+        });
+    });
+});
 
 app.post('/saveFileData', function (req, res) {
-    const data = req.body;
-})
+    const { root, value } = req.body;
+
+    console.log(root)
+    console.log(value)
+
+    if (!root || typeof value !== 'string') {
+        return res.status(400).json({ error: 'Invalid input' });
+    }
+
+    fs.writeFile(root, value, 'utf8', (err) => {
+        if (err) {
+            console.error('File write error:', err);
+            return res.status(500).json({ error: 'Failed to write file' });
+        }
+
+        console.log(`File saved: ${root}`);
+        res.json({ success: true });
+    });
+});
+
 
 app.get("*", function (req, res) {
     const context = {
