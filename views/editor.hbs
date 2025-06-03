@@ -9,7 +9,7 @@
                 <button class="motive-button-main" onclick="motive()">Motyw</button>
                 <button class="motive-button-secondary" onclick="fontUpper()">+</button>
             </div>
-            <button class="main-button" onclick="addFile()">Save config</button>
+            <button class="main-button" onclick="saveConfig()">Save config</button>
             <button class="main-button" onclick="renameFile('{{this.name}}')">Rename file</button>
         </div>
     </div>
@@ -34,19 +34,27 @@
         const textarea = document.getElementById('edit-text');
         const numeringColumn = document.getElementById("numering-column")
         const saveButton = document.getElementById('save-button');
-        let motiveNumber = 0;
-
-        let data = JSON.stringify({
-            root: root,
-        })
-                
-        const options = {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-               },
-            body: data
-        };
+        const motiveList = {
+            "1": {
+                "background" : "white",
+                "color" : "black", 
+                "fontFamily" : "'Courier New', Courier, monospace",
+                "border" : "1px solid smokewhite",
+            },
+            "2": {
+                "background" : "black",
+                "color": "white",
+                "fontFamily" : "'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif",
+                "border" : "1px solid #1F2024",
+            },
+            "3": {
+                "background" : "cornflowerblue",
+                "color": "white",
+                "fontFamily" : "'Times New Roman', Times, serif",
+                "border" : "1px solid #585EFC",
+            }
+        }
+        let motiveNumber = 1;
 
         function autoResizeTextarea() {
             textarea.style.height = 'auto';
@@ -55,21 +63,47 @@
             numeringColumn.style.height = numeringColumn.scrollHeight + 2 + 'px';
         }
 
-        fetch("/getFileData", options)
-            .then(response => response.json())
-            .then(data => {
-                textarea.value = data.value
-                numeringColumn.innerText = '';
-                numeringText = ''
+        let configData = {};
 
-                for(let i=0; i<data.lines; i++){
-                    numeringText += `${i+1}\n`;
-                }
+        const getFileDataFunc = () => {
+            let data = JSON.stringify({ root });
 
-                numeringColumn.innerText = numeringText;
-                autoResizeTextarea();
-            })
-            .catch(error => console.log(error))
+            const options = {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: data
+            };
+
+            fetch("/getFileData", options)
+                .then(response => response.json())
+                .then(data => {
+                    textarea.value = data.value;
+                    configData = data.configData;
+
+                    let numeringText = '';
+                    for(let i = 0; i < data.lines; i++) {
+                        numeringText += `${i + 1}\n`;
+                    }
+
+                    numeringColumn.innerText = numeringText;
+
+                    textarea.style.background = configData.background;
+                    numeringColumn.style.background = configData.background;
+                    textarea.style.color = configData.color || 'inherit';
+                    numeringColumn.style.color = configData.color || 'inherit';
+                    textarea.style.fontFamily = configData.fontFamily;
+                    numeringColumn.style.fontFamily = configData.fontFamily;
+                    textarea.style.border = configData.border;
+                    numeringColumn.style.border = configData.border;
+                    textarea.style.fontSize = configData.fontSize;
+                    numeringColumn.style.fontSize = configData.fontSize;
+
+                    autoResizeTextarea();
+                })
+                .catch(error => console.log(error));
+        };
 
         textarea.onkeyup = function () {
             numeringColumn.innerText = '';
@@ -81,39 +115,53 @@
             }
 
             numeringColumn.innerText = numeringText;
+
+            textarea.style.background = configData.background;
+            numeringColumn.style.background = configData.background;
+            textarea.style.color = configData.color;
+            numeringColumn.style.color = configData.color;
+            textarea.style.fontFamily = configData.fontFamily;
+            numeringColumn.style.fontFamily = configData.fontFamily;
+            textarea.style.border = configData.border;
+            numeringColumn.style.border = configData.border;
+            textarea.style.fontSize = configData.fontSize;
+            numeringColumn.style.fontSize = configData.fontSize;
             autoResizeTextarea();
         }
 
         saveButton.onclick = function() {
-            const editedText = textarea.value;
+    const editedText = textarea.value;
 
-            data = JSON.stringify({
-                root: root,
-                value: editedText,
-            })
-            
-            const options = {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: data
-            };
+    let data = JSON.stringify({
+        root: root,
+        value: editedText,
+    });
 
-            fetch('/saveFileData', options)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert("File saved successfully!");
-                } else {
-                    alert("Failed to save file.");
-                }
-            })
-            .catch(error => {
-                console.error('Save error:', error);
-                alert("An error occurred while saving.");
-            });
-        };
+    const options = {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: data
+    };
+
+    fetch('/saveFileData', options)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("File saved sucessfully!");
+                const folderPath = root.substring(0, root.lastIndexOf("/"));
+                window.location.href = `/?root=${encodeURIComponent(folderPath)}`;
+            } else {
+                alert("Failed to save file.");
+            }
+        })
+        .catch(error => {
+            console.error('Save error:', error);
+            alert("An error occurred while saving.");
+        });
+};
+
 
         const fontLower = () => {
             console.log("Small");
@@ -143,27 +191,6 @@
             autoResizeTextarea();
         }
 
-        const motiveList = {
-            "1": {
-                "background" : "white",
-                "color" : "black", 
-                "fontFamily" : "'Courier New', Courier, monospace",
-                "border" : "1px solid smokewhite",
-            },
-            "2": {
-                "background" : "black",
-                "color": "white",
-                "fontFamily" : "'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif",
-                "border" : "1px solid #1F2024",
-            },
-            "3": {
-                "background" : "cornflowerblue",
-                "color": "white",
-                "fontFamily" : "'Times New Roman', Times, serif",
-                "border" : "1px solid #585EFC",
-            }
-        }
-
         const motive = () => {
             if (motiveNumber < 3)
                 motiveNumber += 1;
@@ -181,5 +208,45 @@
             textarea.style.border = currentMotive.border;
             numeringColumn.style.border = currentMotive.border;
         }
+
+        const saveConfig = () => {
+            const currentFontSizeText = window.getComputedStyle(textarea).fontSize;
+            const currentMotive = motiveList[motiveNumber];
+            console.log(motiveNumber)
+            console.log(motiveList)
+            console.log(currentMotive)
+
+            let data = JSON.stringify({
+                background: currentMotive.background,
+                fontFamily: currentMotive.fontFamily,
+                border: currentMotive.border,
+                color: currentMotive.color,
+                fontSize: currentFontSizeText,
+            })
+
+            const options = {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: data
+            };
+
+            fetch('/saveConfig', options)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Configuration saved successfully!");
+                } else {
+                    alert("Failed to save configuration.");
+                }
+            })
+            .catch(error => {
+                console.error('Save error:', error);
+                alert("An error occurred while saving.");
+            });
+        }
+
+        getFileDataFunc();
     </script>
 </main>

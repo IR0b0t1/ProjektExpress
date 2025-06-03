@@ -72,31 +72,16 @@ function dirExists(filepath, dirIndex) {
     }
 }
 
-function fileExists(filepath, fileIndex) {
-    let fileArr = filepath.split('.');
-    console.log(fileArr);
-    if (fileIndex == 0) {
-        fileIndex += 1;
-        filepath = `${fileArr[0]} (${fileIndex}).${fileArr[1]}`;
-    } else {
-        fileIndex += 1;
-        filepath = fileArr[0].slice(0, -4);
-        filepath = `${fileArr[0]} (${fileIndex}).${fileArr[1]}`;
+function getUniqueFileName(dir, baseName, extension, index = 1) {
+    let newName = `${baseName} (${index})${extension}`;
+    let fullPath = path.join(dir, newName);
+
+    if (fs.existsSync(fullPath)) {
+        return getUniqueFileName(dir, baseName, extension, index + 1);
     }
-    try {
-        fs.writeFile(filepath, '', (err) => {
-            if (err) throw err
-            console.log("plik nadpisany");
-        })
-    }
-    catch (err) {
-        console.log(err.code);
-        if (err.code == 'EEXIST') {
-            console.log(fileIndex);
-            fileExists(filepath, fileIndex);
-        }
-    }
+    return newName;
 }
+
 
 // GET-y
 app.get("/", function (req, res) {
@@ -318,7 +303,7 @@ app.get("/downloadDir", function (req, res) {
 });
 
 app.post("/renameFolder", function (req, res) {
-    if (req.body.root == 'FILES') {
+    if (req.body.root == mainRoot) {
         console.log('Nie można zmieniać nazwy roota');
         return res.redirect(`/`);
     }
@@ -376,6 +361,49 @@ app.post("/renameFolder", function (req, res) {
     });
 });
 
+app.post("/renameFile", function (req, res) {
+    const root = req.body.root || mainRoot;
+    let newName = req.body.newName;
+
+    if (!newName) {
+        return res.status(400).send("Missing file name");
+    }
+
+    let parts = root.split("/");
+    const oldName = parts.pop();
+    const trimmedRoot = parts.join("/");
+    const oldPath = path.join(__dirname, root);
+
+    let nameParts = oldName.split('.');
+    let extension = "";
+    if (nameParts.length > 1) {
+        extension = '.' + nameParts.pop();
+    }
+    const baseOldName = nameParts.join('.');
+    const baseNewName = newName;
+
+    const dirPath = path.join(__dirname, trimmedRoot);
+
+    let finalName = baseNewName + extension;
+    let newPath = path.join(dirPath, finalName);
+
+    if (fs.existsSync(newPath)) {
+        const uniqueName = getUniqueFileName(dirPath, baseNewName, extension);
+        newPath = path.join(dirPath, uniqueName);
+        finalName = uniqueName;
+    }
+
+    fs.rename(oldPath, newPath, (err) => {
+        if (err) {
+            console.error("Error renaming file:", err);
+            return res.status(500).send("Error renaming file");
+        }
+
+        console.log(`File renamed from ${oldName} to ${finalName}`);
+        return res.redirect(`/?root=${trimmedRoot}`);
+    });
+});
+
 app.get('/editFile', function (req, res) {
     context = {}
     console.log(req.query);
@@ -388,6 +416,7 @@ app.get('/editFile', function (req, res) {
 
 app.post('/getFileData', function (req, res) {
     const root = req.body.root;
+    const configRoot = path.join(__dirname, mainRoot, 'config.json')
 
     if (!root) {
         return res.status(400).json({ error: 'No file path provided' });
@@ -401,9 +430,29 @@ app.post('/getFileData', function (req, res) {
 
         console.log("Data from file:\n", data);
         const value = data.split("\n");
-        res.json({
-            value: data,
-            lines: value.length
+
+
+        fs.readFile(configRoot, 'utf8', (err, configData) => {
+            if (err) {
+                console.error('File read error:', err);
+                return res.status(500).json({ error: 'Failed to read file' });
+            }
+
+            console.log("Data from file:\n", configData);
+
+            let parsedConfig;
+            try {
+                parsedConfig = JSON.parse(configData);
+            } catch (e) {
+                console.error('Invalid config JSON:', e);
+                return res.status(500).json({ error: 'Invalid config file' });
+            }
+
+            res.json({
+                value: data,
+                lines: value.length,
+                configData: parsedConfig
+            });
         });
     });
 });
@@ -429,6 +478,39 @@ app.post('/saveFileData', function (req, res) {
     });
 });
 
+app.post('/saveConfig', function (req, res) {
+    const { background, fontFamily, border, fontSize, color } = req.body
+
+    console.log(background)
+    console.log(fontFamily)
+    console.log(border)
+    console.log(fontSize)
+    console.log(color)
+
+    if (!background || !fontFamily || !border || !fontSize || !color) {
+        return res.status(400).json({ error: 'Invalid input' });
+    }
+
+    const configData = JSON.stringify({
+        "background": background,
+        "fontFamily": fontFamily,
+        "border": border,
+        "color": color,
+        "fontSize": fontSize
+    })
+
+    const configRoot = path.join(__dirname, mainRoot, "config.json")
+
+    fs.writeFile(configRoot, configData, 'utf8', (err) => {
+        if (err) {
+            console.error('File write error:', err);
+            return res.status(500).json({ error: 'Failed to write file' });
+        }
+
+        console.log(`File saved: ${configRoot}`);
+        res.json({ success: true });
+    })
+})
 
 app.get("*", function (req, res) {
     const context = {

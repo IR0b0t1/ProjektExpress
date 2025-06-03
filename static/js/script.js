@@ -1,5 +1,6 @@
 const uploadInput = document.getElementById('upload');
 const fileNameText = document.getElementById('file-name');
+
 if (uploadInput) {
     uploadInput.addEventListener('change', function () {
         const files = uploadInput.files;
@@ -274,6 +275,94 @@ const renameFolder = (oldFolderName) => {
 
         dialog.appendChild(folderP);
         dialog.appendChild(folderForm);
+        document.body.appendChild(dialog);
+
+        dialog.showModal();
+    } else {
+        dialog.close();
+        dialog.remove();
+    }
+};
+
+const renameFile = (oldFileName) => {
+    let dialog = document.getElementById('dialog');
+    if (dialog == null) {
+        const root = document.querySelector('main').dataset.root;
+
+        dialog = document.createElement("dialog");
+        dialog.id = 'dialog';
+        dialog.style.zIndex = '10000';
+        dialog.style.padding = '20px';
+        dialog.style.border = 'none';
+        dialog.style.width = '100%';
+        dialog.style.height = '100%';
+        dialog.style.display = 'flex';
+        dialog.style.flexDirection = 'column';
+        dialog.style.justifyContent = 'center';
+        dialog.style.alignItems = 'center';
+        dialog.style.opacity = 0.5;
+        dialog.style.justifySelf = 'center';
+
+        const fileP = document.createElement("p");
+        fileP.style.background = 'rgb(222,222,234)';
+        fileP.style.color = 'darkblue';
+        fileP.style.width = '200px';
+        fileP.style.height = '50px';
+        fileP.style.display = 'flex';
+        fileP.style.justifyContent = 'center';
+        fileP.style.alignItems = 'center';
+        fileP.style.marginBottom = '20px';
+        fileP.textContent = 'Rename file:';
+
+        const fileForm = document.createElement('form');
+        fileForm.method = "POST";
+        fileForm.action = "/renameFile";
+        fileForm.style.display = 'flex';
+        fileForm.style.flexDirection = 'column';
+        fileForm.style.gap = '10px';
+        fileForm.style.alignItems = 'center';
+
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'root';
+        hiddenInput.value = root;
+        fileForm.appendChild(hiddenInput);
+
+        const hiddenOldNameInput = document.createElement('input');
+        hiddenOldNameInput.type = 'hidden';
+        hiddenOldNameInput.name = 'oldName';
+        hiddenOldNameInput.value = oldFileName;
+        fileForm.appendChild(hiddenOldNameInput);
+
+        const fileInput = document.createElement('input');
+        fileInput.placeholder = 'New file name';
+        fileInput.required = true;
+        fileInput.name = 'newName';
+        fileInput.style.padding = '5px';
+        fileForm.appendChild(fileInput);
+
+        const buttonsWrapper = document.createElement('div');
+        buttonsWrapper.style.display = 'flex';
+        buttonsWrapper.style.gap = '10px';
+
+        const fileButtonRename = document.createElement('button');
+        fileButtonRename.textContent = 'Rename';
+        fileButtonRename.type = 'submit';
+        buttonsWrapper.appendChild(fileButtonRename);
+
+        const fileButtonCancel = document.createElement('button');
+        fileButtonCancel.textContent = 'Cancel';
+        fileButtonCancel.type = 'button';
+        fileButtonCancel.onclick = function () {
+            dialog.close();
+            dialog.remove();
+        };
+        buttonsWrapper.appendChild(fileButtonCancel);
+
+        fileForm.appendChild(buttonsWrapper);
+
+        dialog.appendChild(fileP);
+        dialog.appendChild(fileForm);
         document.body.appendChild(dialog);
 
         dialog.showModal();
