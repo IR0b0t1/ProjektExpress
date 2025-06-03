@@ -202,8 +202,8 @@ img {
 }
 
 #edit-text{
-    width: 50%;
-    height: 300px;
+    width: auto;
+    min-width: 50%;
 }
 
 #numering-column,
