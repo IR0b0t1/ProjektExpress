@@ -5,3 +5,53 @@
     1.4. Zmiana nazwy pliku
     1.5. Zapis pliku
 2. Router (opcj)
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const dropZone = document.querySelector(".display-data");
+
+    dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("drag-over");
+    });
+
+    dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("drag-over");
+    });
+
+    dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+
+        const files = Array.from(e.dataTransfer.files);
+        const root = document.querySelector("main").getAttribute("data-root");
+
+        if (files.length > 0) {
+            const formData = new FormData();
+            files.forEach(file => {
+                formData.append("upload", file);
+            });
+            formData.append("root", root);
+
+            fetch("/uploadMultipleFiles", {
+                method: "POST",
+                body: formData
+            }).then(res => {
+                if (res.redirected) {
+                    window.location.href = res.url;
+                } else {
+                    alert("Błąd podczas przesyłania plików");
+                }
+            }).catch(err => {
+                console.error("Upload error:", err);
+                alert("Wystąpił błąd podczas przesyłania plików");
+            });
+        }
+    });
+});
+</script>
+
+.display-data.drag-over {
+    border: 3px dashed #4a90e2;
+    background-color: rgba(74, 144, 226, 0.1);
+}
