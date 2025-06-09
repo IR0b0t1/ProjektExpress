@@ -37,7 +37,11 @@ app.engine('hbs', hbs({
         },
         imagesType: function (file) {
             const parts = file.split('.');
-            return `gfx/${parts[1]}.png`;
+            const extensions = ['css', 'js', 'json', 'html', 'txt']
+            if (parts[1] == 'css' || parts[1] == 'js' || parts[1] == 'json' || parts[1] == 'html' || parts[1] == 'txt')
+                return `gfx/${parts[1]}.png`;
+            else
+                return 'gfx/img.png';
         }
     }
 }));
@@ -86,6 +90,10 @@ function getUniqueFileName(dir, baseName, extension, index = 1) {
 // GET-y
 app.get("/", function (req, res) {
     let root = req.query.root || mainRoot;
+    let error = req.query.error;
+    if (error == 'CONFIG_DELETE') {
+        error = "Can't delete config.json";
+    }
     let dirArr = [];
     let fileArr = [];
 
@@ -110,7 +118,8 @@ app.get("/", function (req, res) {
             context = {
                 folders: dirArr,
                 files: fileArr,
-                root: root
+                root: root,
+                error: error,
             };
             console.log(context)
             res.render('index.hbs', context);
@@ -258,14 +267,19 @@ app.get("/deleteDir", function (req, res) {
 app.get("/deleteFile", function (req, res) {
     const file = req.query.file;
     const root = req.query.root || mainRoot;
-    const filepath = path.join(__dirname, root, file);
-    console.log(`Usuwanie pliku: ${filepath}`);
+    if (file == "config.json") {
+        res.redirect(`/?root=${root}&error=CONFIG_DELETE`);
+    }
+    else {
+        const filepath = path.join(__dirname, root, file);
+        console.log(`Usuwanie pliku: ${filepath}`);
 
-    fs.unlink(filepath, (err) => {
-        if (err) throw err;
-        console.log(`Usunięto plik: ${filepath}`);
-        res.redirect(`/?root=${root}`);
-    });
+        fs.unlink(filepath, (err) => {
+            if (err) throw err;
+            console.log(`Usunięto plik: ${filepath}`);
+            res.redirect(`/?root=${root}`);
+        });
+    }
 });
 
 app.get("/downloadFile", function (req, res) {
@@ -411,7 +425,7 @@ app.get('/editFile', function (req, res) {
     console.log(root);
     context.root = root;
     console.log(context);
-    res.render('editor.hbs', context);
+    res.render('textEditor.hbs', context);
 })
 
 app.post('/getFileData', function (req, res) {
@@ -510,6 +524,14 @@ app.post('/saveConfig', function (req, res) {
         console.log(`File saved: ${configRoot}`);
         res.json({ success: true });
     })
+})
+
+app.get("/signin", function (req, res) {
+    res.render("signin.hbs");
+})
+
+app.get("/login", function (req, res) {
+    res.render("login.hbs");
 })
 
 app.get("*", function (req, res) {

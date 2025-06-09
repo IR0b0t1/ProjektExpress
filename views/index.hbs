@@ -1,5 +1,12 @@
 <header>
-    <h1>Filemanager cz.3 - file editor</h1>
+    <div class="main-header">
+        <h1>Filemanager cz. 4 - image editor</h1>
+        <div class="login-box">
+            <a class="login" href="/login">Log In</a>
+            <a class="login" href="/signin">Sign In</a>
+        </div>
+    </div>
+    <h3>{{#if error}}{{error}}{{/if}}</h3>
 </header>
 <main data-root="{{root}}">
     <div class="left-menu">
@@ -34,7 +41,7 @@
                 {{#each folders}}
                 <div class="display-upload">
                     <div class="dataDiv">
-                        <img src="gfx/folder.png" alt="dir image">
+                        <img class="logo" src="gfx/folder.png" alt="dir image">
                         <a href="/?root={{../root}}/{{this}}">{{this}}</a>
                     </div>
                     <div class="buttonDiv">
@@ -55,7 +62,7 @@
                 {{#each files}}
                 <div class="display-upload">
                     <div class="dataDiv">
-                        <img src={{imagesType this}} alt="file image">
+                        <img class="logo" src={{imagesType this}} alt="file image">
                         <a href="/editFile?root={{../root}}/{{this}}">{{this}}</a>
                     </div>
                     <div class="buttonDiv">
@@ -69,4 +76,52 @@
             </div>
         </div>
     </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const dropTarget = document.querySelector(".display-data");
+
+            dropTarget.addEventListener("dragover", function (e) {
+                e.preventDefault();
+                dropTarget.classList.add("drag-over");
+            });
+
+            dropTarget.addEventListener("dragleave", function () {
+                dropTarget.classList.remove("drag-over");
+            });
+
+            dropTarget.addEventListener("drop", function (e) {
+                console.log("Pliki upuszczone na .display-data");
+                e.stopPropagation();
+                e.preventDefault();
+                dropTarget.classList.remove("drag-over");
+
+                const files = e.dataTransfer.files;
+                console.log("Pliki:", files);
+
+                const formData = new FormData();
+                for (let i = 0; i < files.length; i++) {
+                    formData.append("upload", files[i]);
+                }
+
+                const root = document.querySelector("main").getAttribute("data-root");
+                formData.append("root", root);
+
+                fetch("/uploadMultipleFiles", {
+                    method: "POST",
+                    body: formData
+                })
+                    .then(response => {
+                        if (response.redirected) {
+                            window.location.href = response.url;
+                        } else {
+                            return response.text().then(text => alert(text));
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Błąd uploadu:", error);
+                        alert("Wystąpił błąd podczas przesyłania plików.");
+                    });
+            });
+        });
+    </script>
 </main>
