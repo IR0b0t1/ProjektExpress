@@ -53,6 +53,8 @@ app.use(express.urlencoded({
 // Static
 app.use(express.static('static'));
 
+const data = require("./USER_BASE/data.json");
+console.log(data);
 let context = {};
 
 function dirExists(filepath, dirIndex) {
@@ -526,12 +528,23 @@ app.post('/saveConfig', function (req, res) {
     })
 })
 
-app.get("/signin", function (req, res) {
-    res.render("signin.hbs");
+app.get("/register", function (req, res) {
+    res.render("register.hbs")
 })
 
 app.get("/login", function (req, res) {
     res.render("login.hbs");
+})
+
+app.post("/registerUser", function (req, res) {
+    const input = req.body;
+    console.log('req.body', input)
+    if (input.password != input.repeatPassword) {
+        res.redirect('/register');
+        return;
+    }
+    const root = req.query.root || mainRoot;
+    res.redirect(`/?root=${root}`);
 })
 
 app.get("*", function (req, res) {
