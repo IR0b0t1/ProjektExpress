@@ -1,3 +1,14 @@
-{
-    "users": []
-}
+[
+  {
+    "login": "user1",
+    "password": "$2b$10$BQr.OOo3RSzxq.MYY/Ijw.DwFQwMetPY1yporGcwuHl2cU/z9QyT2"
+  },
+  {
+    "login": "user2",
+    "password": "$2b$10$6.HLiRjJX2O.R1sA773wduVk3IlZt7Uxn/EPiYL9mBFFcPk.Bdk4G"
+  },
+  {
+    "login": "aaaa",
+    "password": "$2b$10$FS83QDfuLu2enwKVpb3eM.uVwBgZ00kdmUUfwffw9uUBHqasPTLja"
+  }
+]

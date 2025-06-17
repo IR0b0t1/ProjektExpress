@@ -2,7 +2,7 @@
     <div class="main-header">
         <h1>Filemanager cz. 5 - users</h1>
         <div class="login-box">
-            <a class="login" href="/login">Log Out</a>
+            <a class="login" href="/logout">{{loggedInUser}}: Log Out</a>
         </div>
     </div>
     <h3>{{#if error}}{{error}}{{/if}}</h3>
@@ -27,7 +27,7 @@
     </div>
     <div class="display-data">
         <nav class="breadcrumb">
-            <a href="/?root=USER_DATA">[ USER_DATA ]</a>
+            <a href="/?root=USER_DATA">[ Files ]</a>
             {{#each (splitPath root)}}
             {{#if @index}} &rarr; <a href="/?root={{this.path}}">[ {{this.name}} ]</a>{{/if}}
             {{/each}}

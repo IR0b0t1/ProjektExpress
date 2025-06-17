@@ -1,3 +1,4 @@
+// Const dla serwera
 const express = require("express");
 const hbs = require('express-handlebars');
 const archiver = require('archiver');
@@ -6,15 +7,29 @@ const PORT = 5000;
 const path = require("path");
 const fs = require("fs");
 const formidable = require('formidable');
-app.use(express.json());
-const mainRoot = "USER_DATA";
+const bcryptjs = require("bcryptjs");
+const { hash, compare } = bcryptjs;
+const cookieParser = require("cookie-parser");
+const nocache = require("nocache");
 
+// DLC dla app
+app.use(express.json());
+app.use(cookieParser());
+app.use(nocache());
+
+const mainRoot = "USER_DATA";
+const userFilePath = path.join(__dirname, 'USER_BASE', 'data.json');
+
+// Setup HBS-a
 app.set('views', path.join(__dirname, 'views'));
 app.engine('hbs', hbs({
     defaultLayout: 'main.hbs',
     helpers: {
         splitPath: function (pathStr) {
+            pathStr = pathStr.replace(/\\/g, '/');
             const parts = pathStr.split('/');
+            parts.shift();
+            parts.shift();
             let result = [];
             let accumulated = "";
             parts.forEach((part, index) => {
@@ -24,8 +39,8 @@ app.engine('hbs', hbs({
             return result;
         },
         splitPathFile: function (pathStr) {
+            pathStr = pathStr.replace(/\\/g, '/');
             const parts = pathStr.split('/');
-            parts.pop;
             let result = [];
             let accumulated = "";
             parts.forEach((part, index) => {
@@ -37,7 +52,6 @@ app.engine('hbs', hbs({
         },
         imagesType: function (file) {
             const parts = file.split('.');
-            const extensions = ['css', 'js', 'json', 'html', 'txt']
             if (parts[1] == 'css' || parts[1] == 'js' || parts[1] == 'json' || parts[1] == 'html' || parts[1] == 'txt')
                 return `gfx/${parts[1]}.png`;
             else
@@ -50,30 +64,34 @@ app.use(express.urlencoded({
     extended: true
 }));
 
-// Static
 app.use(express.static('static'));
 
-const data = require("./USER_BASE/data.json");
-console.log(data);
 let context = {};
 
+// Funkcje
 function dirExists(filepath, dirIndex) {
-    if (dirIndex == 0) {
-        dirIndex += 1;
-        filepath = `${filepath} (${dirIndex})`;
-    } else {
-        dirIndex += 1;
-        filepath = filepath.slice(0, -4);
-        filepath = `${filepath} (${dirIndex})`;
+    let currentPath = filepath;
+    if (dirIndex > 0) {
+        const lastParenIndex = currentPath.lastIndexOf(' (');
+        if (lastParenIndex !== -1) {
+            currentPath = currentPath.substring(0, lastParenIndex);
+        }
     }
+
+    dirIndex += 1;
+    currentPath = `${currentPath} (${dirIndex})`;
+
     try {
-        fs.mkdirSync(filepath);
+        fs.mkdirSync(currentPath);
     }
     catch (err) {
         console.log(err.code);
         if (err.code == 'EEXIST') {
             console.log(dirIndex);
-            dirExists(filepath, dirIndex);
+            dirExists(filepath, dirIndex); // Pass the original filepath for consistent base
+        } else {
+            console.error("Error creating directory:", err);
+            // Handle other errors if necessary
         }
     }
 }
@@ -88,10 +106,82 @@ function getUniqueFileName(dir, baseName, extension, index = 1) {
     return newName;
 }
 
+function fileExists(filepath, fileIndex) {
+    let currentPath = filepath;
+    let baseName = path.basename(filepath, path.extname(filepath));
+    let extension = path.extname(filepath);
+
+    if (fileIndex > 0) {
+        const lastParenIndex = baseName.lastIndexOf(' (');
+        if (lastParenIndex !== -1) {
+            baseName = baseName.substring(0, lastParenIndex);
+        }
+    }
+
+    fileIndex += 1;
+    let newFileName = `${baseName} (${fileIndex})${extension}`;
+    currentPath = path.join(path.dirname(filepath), newFileName);
+
+    if (fs.existsSync(currentPath)) {
+        fileExists(filepath, fileIndex);
+    } else {
+        fs.writeFile(currentPath, '', (err) => {
+            if (err) throw err;
+            console.log("Unique file created:", currentPath);
+        });
+    }
+}
+
+async function readUsers() {
+    try {
+        const data = await fs.promises.readFile(userFilePath, 'utf8');
+        return JSON.parse(data);
+    } catch (err) {
+        if (err.code === 'ENOENT' || err instanceof SyntaxError) {
+            return [];
+        }
+        console.error('Błąd odczytu pliku:', err);
+        return [];
+    }
+}
+
+async function writeUsers(users) {
+    try {
+        await fs.promises.writeFile(userFilePath, JSON.stringify(users, null, 2), 'utf8');
+    } catch (err) {
+        console.error('Błąd zapisu pliku:', err);
+    }
+}
+
+app.use((req, res, next) => {
+    const publicRoutes = ['/login', '/register', '/loginUser', '/registerUser', '/404'];
+
+    if (publicRoutes.includes(req.path)) {
+        return next();
+    }
+
+    const userLogin = req.cookies.userLogin;
+    if (userLogin) {
+        req.userRoot = path.join(mainRoot, userLogin, 'Files');
+        next();
+    } else {
+        res.redirect('/login');
+    }
+});
 
 // GET-y
 app.get("/", function (req, res) {
-    let root = req.query.root || mainRoot;
+    let root = req.query.root || req.userRoot;
+
+    const userFilesBasePath = path.join(mainRoot, req.cookies.userLogin, 'Files').replace(/\\/g, '/');
+
+    root = root.replace(/\\/g, '/');
+
+    if (!root.startsWith(userFilesBasePath)) {
+        root = req.userRoot.replace(/\\/g, '/');
+        console.warn(`User ${req.cookies.userLogin} attempted to access outside their root. Resetting to ${root}`);
+    }
+
     let error = req.query.error;
     if (error == 'CONFIG_DELETE') {
         error = "Can't delete config.json";
@@ -99,8 +189,17 @@ app.get("/", function (req, res) {
     let dirArr = [];
     let fileArr = [];
 
+    const userLogin = req.cookies.userLogin;
+    context.loggedInUser = userLogin;
+
     fs.readdir(path.join(__dirname, root), (err, files) => {
-        if (err) throw err;
+        if (err) {
+            console.error('Error reading directory:', err);
+            if (err.code === 'ENOENT') {
+                return res.redirect(`/?root=${req.userRoot.replace(/\\/g, '/')}`);
+            }
+            return res.status(500).send("Error reading directory.");
+        }
 
         let statPromises = files.map(file => {
             return new Promise((resolve) => {
@@ -122,6 +221,7 @@ app.get("/", function (req, res) {
                 files: fileArr,
                 root: root,
                 error: error,
+                loggedInUser: userLogin,
             };
             console.log(context)
             res.render('index.hbs', context);
@@ -133,7 +233,7 @@ app.post("/addFolder", function (req, res) {
     let dirIndex = 0;
     console.log('addFolder');
     console.log(req.body);
-    const root = req.body.root || mainRoot;
+    const root = req.body.root || req.userRoot;
     const folderName = req.body.name;
     const filepath = path.join(__dirname, root, folderName);
     console.log(filepath);
@@ -147,7 +247,8 @@ app.post("/addFolder", function (req, res) {
             dirExists(filepath, dirIndex);
         }
     }
-    res.redirect(`/?root=${root}`);
+    const urlRoot = root.replace(/\\/g, '/');
+    res.redirect(`/?root=${urlRoot}`);
 });
 
 app.post("/addFile", function (req, res) {
@@ -155,7 +256,7 @@ app.post("/addFile", function (req, res) {
     let content = '';
     console.log('addFile');
     console.log(req.body);
-    const root = req.body.root || mainRoot;
+    const root = req.body.root || req.userRoot;
     const fileName = req.body.name + req.body.extension;
     console.log(req.body.extension)
     const filepath = path.join(__dirname, root, fileName);
@@ -198,22 +299,39 @@ app.post("/addFile", function (req, res) {
     </body>
 </html>`
             break;
+        default:
+            content = '';
+            break;
     }
     console.log(content)
 
-    if (fs.existsSync(filepath)) {
-        fileExists(filepath, fileIndex);
-    } else {
-        fs.writeFile(filepath, content, (err) => {
-            if (err) throw err;
-            console.log("plik zapisany");
+    fs.promises.access(filepath, fs.constants.F_OK)
+        .then(() => {
+            const { name: baseName, ext: extension } = path.parse(fileName);
+            const uniqueFileName = getUniqueFileName(path.join(__dirname, root), baseName, extension);
+            const uniqueFilepath = path.join(__dirname, root, uniqueFileName);
+            fs.writeFile(uniqueFilepath, content, (err) => {
+                if (err) throw err;
+                console.log("Unique file created:", uniqueFilepath);
+                res.redirect(`/?root=${root.replace(/\\/g, '/')}`);
+            });
+        })
+        .catch(() => {
+            fs.writeFile(filepath, content, (err) => {
+                if (err) throw err;
+                console.log("File saved:", filepath);
+                res.redirect(`/?root=${root.replace(/\\/g, '/')}`);
+            });
         });
-    }
-    res.redirect(`/?root=${root}`);
 });
 
 app.post('/uploadMultipleFiles', function (req, res) {
-    const form = formidable({ multiples: true, uploadDir: path.join(__dirname, 'FILES') });
+    const form = formidable({ multiples: true, uploadDir: path.join(__dirname, 'temp_uploads') });
+
+    const tempUploadDir = path.join(__dirname, 'temp_uploads');
+    if (!fs.existsSync(tempUploadDir)) {
+        fs.mkdirSync(tempUploadDir, { recursive: true });
+    }
 
     form.parse(req, (err, fields, files) => {
         if (err) {
@@ -224,7 +342,12 @@ app.post('/uploadMultipleFiles', function (req, res) {
         console.log('FIELDS:', fields);
         console.log('FILES:', files);
 
-        const root = fields.root || mainRoot;
+        let root = fields.root[0] || req.userRoot;
+        if (!root.startsWith(path.join(mainRoot, req.cookies.userLogin))) {
+            root = req.userRoot;
+            console.warn(`User ${req.cookies.userLogin} attempted to upload outside their root. Resetting to ${root}`);
+        }
+
         let uploadedFiles = files.upload;
 
         if (!Array.isArray(uploadedFiles)) {
@@ -232,9 +355,9 @@ app.post('/uploadMultipleFiles', function (req, res) {
         }
 
         uploadedFiles.forEach(file => {
-            const oldPath = file.path;
+            const oldPath = file.filepath;
             const newFolderPath = path.join(__dirname, root);
-            const newPath = path.join(newFolderPath, file.name);
+            const newPath = path.join(newFolderPath, file.originalFilename);
 
             console.log('Moving file:', oldPath, 'to', newPath);
 
@@ -243,64 +366,123 @@ app.post('/uploadMultipleFiles', function (req, res) {
                 console.log(`Created folder: ${newFolderPath}`);
             }
 
+            if (fs.existsSync(newPath)) {
+                const { name: baseName, ext: extension } = path.parse(file.originalFilename);
+                const uniqueFileName = getUniqueFileName(newFolderPath, baseName, extension);
+                newPath = path.join(newFolderPath, uniqueFileName);
+            }
+
             fs.rename(oldPath, newPath, (err) => {
-                if (err) throw err;
+                if (err) {
+                    console.error('File rename error:', err);
+                    fs.unlink(oldPath, (unlinkErr) => {
+                        if (unlinkErr) console.error('Error deleting temp file:', unlinkErr);
+                    });
+                    return;
+                }
                 console.log('File saved:', newPath);
             });
         });
 
-        res.redirect(`/?root=${root}`);
+        res.redirect(`/?root=${root.replace(/\\/g, '/')}`);
     });
 });
 
+
 app.get("/deleteDir", function (req, res) {
     const dir = req.query.dir;
-    const root = req.query.root || mainRoot;
+    const root = req.query.root || req.userRoot;
     const filepath = path.join(__dirname, root, dir);
     console.log(`Usuwanie katalogu: ${filepath}`);
 
+    const userRootNormalized = path.join(__dirname, req.userRoot).replace(/\\/g, '/');
+    const filepathNormalized = filepath.replace(/\\/g, '/');
+
+    if (!filepathNormalized.startsWith(userRootNormalized)) {
+        console.warn(`User ${req.cookies.userLogin} attempted to delete outside their root: ${filepath}`);
+        return res.status(403).send("Access Denied: Cannot delete outside your designated folder.");
+    }
+
     fs.rmdir(filepath, { recursive: true }, (err) => {
-        if (err) throw err;
+        if (err) {
+            console.error("Error deleting directory:", err);
+            return res.status(500).send("Error deleting directory.");
+        }
         console.log(`Usunięto katalog: ${filepath}`);
-        res.redirect(`/?root=${root}`);
+        res.redirect(`/?root=${root.replace(/\\/g, '/')}`);
     });
 });
 
 app.get("/deleteFile", function (req, res) {
     const file = req.query.file;
-    const root = req.query.root || mainRoot;
-    if (file == "config.json") {
-        res.redirect(`/?root=${root}&error=CONFIG_DELETE`);
-    }
-    else {
-        const filepath = path.join(__dirname, root, file);
-        console.log(`Usuwanie pliku: ${filepath}`);
+    const root = req.query.root || req.userRoot;
 
-        fs.unlink(filepath, (err) => {
-            if (err) throw err;
-            console.log(`Usunięto plik: ${filepath}`);
-            res.redirect(`/?root=${root}`);
-        });
+    const filepath = path.join(__dirname, root, file);
+    const userConfigPath = path.join(__dirname, mainRoot, req.cookies.userLogin, 'Configuration', 'config.json');
+
+    const filepathNormalized = filepath.replace(/\\/g, '/');
+    const userConfigPathNormalized = userConfigPath.replace(/\\/g, '/');
+    const userRootNormalized = path.join(__dirname, req.userRoot).replace(/\\/g, '/');
+
+    if (filepathNormalized === userConfigPathNormalized) {
+        return res.redirect(`/?root=${root.replace(/\\/g, '/')}&error=CONFIG_DELETE`);
     }
+
+    if (!filepathNormalized.startsWith(userRootNormalized)) {
+        console.warn(`User ${req.cookies.userLogin} attempted to delete outside their root: ${filepath}`);
+        return res.status(403).send("Access Denied: Cannot delete outside your designated folder.");
+    }
+
+    console.log(`Usuwanie pliku: ${filepath}`);
+    fs.unlink(filepath, (err) => {
+        if (err) {
+            console.error("Error deleting file:", err);
+            return res.status(500).send("Error deleting file.");
+        }
+        console.log(`Usunięto plik: ${filepath}`);
+        res.redirect(`/?root=${root.replace(/\\/g, '/')}`);
+    });
 });
 
 app.get("/downloadFile", function (req, res) {
     const file = req.query.file;
-    const root = req.query.root || mainRoot;
+    const root = req.query.root || req.userRoot;
     const filepath = path.join(__dirname, root, file);
     console.log(`Pobieranie pliku: ${filepath}`);
 
+    const userRootNormalized = path.join(__dirname, req.userRoot).replace(/\\/g, '/');
+    const filepathNormalized = filepath.replace(/\\/g, '/');
+
+    if (!filepathNormalized.startsWith(userRootNormalized)) {
+        console.warn(`User ${req.cookies.userLogin} attempted to download outside their root: ${filepath}`);
+        return res.status(403).send("Access Denied: Cannot download outside your designated folder.");
+    }
+
     res.download(filepath, (err) => {
-        if (err) throw err
-        console.log(`Pobrano plik: ${filepath}`);
+        if (err) {
+            console.error("Error downloading file:", err);
+            if (err.code === 'ENOENT') {
+                return res.status(404).send("File not found.");
+            }
+            return res.status(500).send("Error during file download.");
+        }
+        console.log(`Pobrano pliku: ${filepath}`);
     })
 })
 
 app.get("/downloadDir", function (req, res) {
     const dir = req.query.dir;
-    const root = req.query.root || mainRoot;
+    const root = req.query.root || req.userRoot;
     const dirPath = path.join(__dirname, root, dir);
     const zipName = `${dir}.zip`;
+
+    const userRootNormalized = path.join(__dirname, req.userRoot).replace(/\\/g, '/');
+    const dirPathNormalized = dirPath.replace(/\\/g, '/');
+
+    if (!dirPathNormalized.startsWith(userRootNormalized)) {
+        console.warn(`User ${req.cookies.userLogin} attempted to download directory outside their root: ${dirPath}`);
+        return res.status(403).send("Access Denied: Cannot download directory outside your designated folder.");
+    }
 
     res.setHeader('Content-Disposition', `attachment; filename=${zipName}`);
     res.setHeader('Content-Type', 'application/zip');
@@ -319,34 +501,41 @@ app.get("/downloadDir", function (req, res) {
 });
 
 app.post("/renameFolder", function (req, res) {
-    if (req.body.root == mainRoot) {
-        console.log('Nie można zmieniać nazwy roota');
-        return res.redirect(`/`);
-    }
-    console.log('req.body');
-    console.log(req.body);
+    const userBaseFolder = path.join(mainRoot, req.cookies.userLogin);
+    const userFilesFolder = path.join(userBaseFolder, 'Files');
+    const userConfigFolder = path.join(userBaseFolder, 'Configuration');
+
     const oldName = req.body.oldName;
+    const root = req.body.root || req.userRoot;
+    const oldPath = path.join(__dirname, root, oldName);
+
+    const oldPathNormalized = oldPath.replace(/\\/g, '/');
+    const userFilesFolderNormalized = path.join(__dirname, userFilesFolder).replace(/\\/g, '/');
+    const userConfigFolderNormalized = path.join(__dirname, userConfigFolder).replace(/\\/g, '/');
+    const userRootNormalized = path.join(__dirname, req.userRoot).replace(/\\/g, '/');
+
+
+    if (oldPathNormalized === userFilesFolderNormalized || oldPathNormalized === userConfigFolderNormalized) {
+        console.log(`User ${req.cookies.userLogin} tried to rename a protected folder: ${oldPath}`);
+        return res.status(403).send("Access Denied: Cannot rename core user folders (Files, Configuration).");
+    }
+
+    if (!oldPathNormalized.startsWith(userRootNormalized)) {
+        console.warn(`User ${req.cookies.userLogin} attempted to rename folder outside their root: ${oldPath}`);
+        return res.status(403).send("Access Denied: Cannot rename outside your designated folder.");
+    }
+
     console.log('Old Folder Name:', oldName);
     const newName = req.body.newName;
     console.log('New Folder Name:', newName);
-    const root = req.body.root || mainRoot;
     console.log('Root:', root);
-
-    const oldPath = path.join(__dirname, root, oldName);
     console.log('Old Path:', oldPath);
 
-    let lastBackslashIndex = oldPath.lastIndexOf("\\");
-    let newPath = oldPath.slice(0, lastBackslashIndex);
+    const parentDirPath = path.dirname(oldPath);
+    const newFullPath = path.join(parentDirPath, newName);
+    console.log('New Full Path:', newFullPath);
 
-    const filesIndex = oldPath.indexOf("FILES\\");
-    const upToLastBackslash = oldPath.lastIndexOf("\\");
-    let newRoot = oldPath.slice(filesIndex, upToLastBackslash + 1);
-    newRoot = newRoot.slice(0, -1)
-
-    console.log('newRoot:', newRoot);
-
-    newPath = path.join(newPath, newName)
-    console.log('New Path:', newPath);
+    const redirectRoot = path.dirname(oldPath.replace(__dirname + path.sep, '')).replace(/\\/g, '/');
 
     fs.readdir(path.join(__dirname, root), (err, files) => {
         if (err) {
@@ -355,50 +544,59 @@ app.post("/renameFolder", function (req, res) {
         }
 
         if (files.includes(newName)) {
-            return res.redirect(`/?root=${root}&error=Folder already exists`);
+            return res.redirect(`/?root=${root.replace(/\\/g, '/')}&error=Folder already exists`);
         }
 
-        fs.rename(oldPath, newPath, (err) => {
+        fs.rename(oldPath, newFullPath, (err) => {
             if (err) {
                 console.error("Error renaming folder:", err);
                 console.log('Error code: ')
                 console.log(err.code)
-                if (err.code == 'EPERM') {
-                    dirExists(oldPath, 0)
-                    console.log(`Folder renamed to ${newName}`);
-                    return res.redirect(`/?root=${newRoot}`);
+                if (err.code == 'EPERM' || err.code === 'EINVAL') {
+                    return res.status(500).send("Permission denied or unexpected error during rename.");
                 } else {
                     return res.status(500).send("Error renaming folder");
                 }
             }
             console.log(`Folder renamed to ${newName}`);
-            return res.redirect(`/?root=${newRoot}`);
+            return res.redirect(`/?root=${redirectRoot}`);
         });
     });
 });
 
 app.post("/renameFile", function (req, res) {
-    const root = req.body.root || mainRoot;
+    const root = req.body.root || req.userRoot;
     let newName = req.body.newName;
 
     if (!newName) {
         return res.status(400).send("Missing file name");
     }
 
-    let parts = root.split("/");
-    const oldName = parts.pop();
-    const trimmedRoot = parts.join("/");
+    const parentDir = path.dirname(root);
+    const oldFileName = path.basename(root);
     const oldPath = path.join(__dirname, root);
 
-    let nameParts = oldName.split('.');
+    const oldPathNormalized = oldPath.replace(/\\/g, '/');
+    const userRootNormalized = path.join(__dirname, req.userRoot).replace(/\\/g, '/');
+    const userConfigPathNormalized = path.join(__dirname, mainRoot, req.cookies.userLogin, 'Configuration', 'config.json').replace(/\\/g, '/');
+
+    if (!oldPathNormalized.startsWith(userRootNormalized)) {
+        console.warn(`User ${req.cookies.userLogin} attempted to rename file outside their root: ${oldPath}`);
+        return res.status(403).send("Access Denied: Cannot rename outside your designated folder.");
+    }
+
+    if (oldPathNormalized === userConfigPathNormalized) {
+        return res.status(403).send("Access Denied: Cannot rename config.json.");
+    }
+
+    let nameParts = oldFileName.split('.');
     let extension = "";
     if (nameParts.length > 1) {
         extension = '.' + nameParts.pop();
     }
-    const baseOldName = nameParts.join('.');
     const baseNewName = newName;
 
-    const dirPath = path.join(__dirname, trimmedRoot);
+    const dirPath = path.join(__dirname, parentDir);
 
     let finalName = baseNewName + extension;
     let newPath = path.join(dirPath, finalName);
@@ -415,30 +613,61 @@ app.post("/renameFile", function (req, res) {
             return res.status(500).send("Error renaming file");
         }
 
-        console.log(`File renamed from ${oldName} to ${finalName}`);
-        return res.redirect(`/?root=${trimmedRoot}`);
+        console.log(`File renamed from ${oldFileName} to ${finalName}`);
+        return res.redirect(`/?root=${parentDir.replace(/\\/g, '/')}`);
     });
 });
+
 
 app.get('/editFile', function (req, res) {
     context = {}
     console.log(req.query);
     let root = req.query.root
+
+    const fullFilePath = path.join(__dirname, root);
+
+    const fullFilePathNormalized = fullFilePath.replace(/\\/g, '/');
+    const userRootNormalized = path.join(__dirname, req.userRoot).replace(/\\/g, '/');
+
+    if (!fullFilePathNormalized.startsWith(userRootNormalized)) {
+        console.warn(`User ${req.cookies.userLogin} attempted to edit file outside their root: ${fullFilePath}`);
+        return res.status(403).send("Access Denied: Cannot edit files outside your designated folder.");
+    }
+
+    const userConfigPathNormalized = path.join(__dirname, mainRoot, req.cookies.userLogin, 'Configuration', 'config.json').replace(/\\/g, '/');
+    if (fullFilePathNormalized === userConfigPathNormalized) {
+        console.warn(`User ${req.cookies.userLogin} attempted to edit config.json via /editFile.`);
+        return res.status(403).send("Access Denied: Edit config via settings.");
+    }
+
     console.log(root);
-    context.root = root;
+    context.root = root.replace(/\\/g, '/');
+    context.loggedInUser = req.cookies.userLogin;
     console.log(context);
     res.render('textEditor.hbs', context);
 })
 
 app.post('/getFileData', function (req, res) {
     const root = req.body.root;
-    const configRoot = path.join(__dirname, mainRoot, 'config.json')
+
+    const userLogin = req.cookies.userLogin;
+    const configRoot = path.join(__dirname, mainRoot, userLogin, 'Configuration', 'config.json');
+
+    const requestedFilePath = path.join(__dirname, root);
+
+    const requestedFilePathNormalized = requestedFilePath.replace(/\\/g, '/');
+    const userBaseRootNormalized = path.join(__dirname, mainRoot, userLogin).replace(/\\/g, '/');
+
+    if (!requestedFilePathNormalized.startsWith(userBaseRootNormalized)) {
+        console.warn(`User ${userLogin} attempted to get data from file outside their root: ${requestedFilePath}`);
+        return res.status(403).json({ error: 'Access Denied: Cannot access files outside your designated folder.' });
+    }
 
     if (!root) {
         return res.status(400).json({ error: 'No file path provided' });
     }
 
-    fs.readFile(root, 'utf8', (err, data) => {
+    fs.readFile(requestedFilePath, 'utf8', (err, data) => {
         if (err) {
             console.error('File read error:', err);
             return res.status(500).json({ error: 'Failed to read file' });
@@ -451,17 +680,42 @@ app.post('/getFileData', function (req, res) {
         fs.readFile(configRoot, 'utf8', (err, configData) => {
             if (err) {
                 console.error('File read error:', err);
-                return res.status(500).json({ error: 'Failed to read file' });
+                if (err.code === 'ENOENT') {
+                    console.log('User config.json not found, providing default.');
+                    return res.json({
+                        value: data,
+                        lines: value.length,
+                        configData: {
+                            "background": "#ffffff",
+                            "fontFamily": "monospace",
+                            "border": "1px solid #ccc",
+                            "color": "#000000",
+                            "fontSize": "16px"
+                        }
+                    });
+                }
+                return res.status(500).json({ error: 'Failed to read config file' });
             }
 
-            console.log("Data from file:\n", configData);
+            console.log("Data from config file:\n", configData);
 
             let parsedConfig;
             try {
                 parsedConfig = JSON.parse(configData);
             } catch (e) {
                 console.error('Invalid config JSON:', e);
-                return res.status(500).json({ error: 'Invalid config file' });
+                return res.json({
+                    value: data,
+                    lines: value.length,
+                    configData: {
+                        "background": "#ffffff",
+                        "fontFamily": "monospace",
+                        "border": "1px solid #ccc",
+                        "color": "#000000",
+                        "fontSize": "16px"
+                    },
+                    warning: "Invalid config.json, loading defaults."
+                });
             }
 
             res.json({
@@ -476,6 +730,23 @@ app.post('/getFileData', function (req, res) {
 app.post('/saveFileData', function (req, res) {
     const { root, value } = req.body;
 
+    const fullFilePath = path.join(__dirname, root);
+
+    const fullFilePathNormalized = fullFilePath.replace(/\\/g, '/');
+    const userRootNormalized = path.join(__dirname, req.userRoot).replace(/\\/g, '/');
+
+
+    if (!fullFilePathNormalized.startsWith(userRootNormalized)) {
+        console.warn(`User ${req.cookies.userLogin} attempted to save file outside their root: ${fullFilePath}`);
+        return res.status(403).json({ error: 'Access Denied: Cannot save files outside your designated folder.' });
+    }
+
+    const userConfigPathNormalized = path.join(__dirname, mainRoot, req.cookies.userLogin, 'Configuration', 'config.json').replace(/\\/g, '/');
+    if (fullFilePathNormalized === userConfigPathNormalized) {
+        console.warn(`User ${req.cookies.userLogin} attempted to save config.json via /saveFileData.`);
+        return res.status(403).json({ error: 'Access Denied: Save config via settings.' });
+    }
+
     console.log(root)
     console.log(value)
 
@@ -483,13 +754,13 @@ app.post('/saveFileData', function (req, res) {
         return res.status(400).json({ error: 'Invalid input' });
     }
 
-    fs.writeFile(root, value, 'utf8', (err) => {
+    fs.writeFile(fullFilePath, value, 'utf8', (err) => {
         if (err) {
             console.error('File write error:', err);
             return res.status(500).json({ error: 'Failed to write file' });
         }
 
-        console.log(`File saved: ${root}`);
+        console.log(`File saved: ${fullFilePath}`);
         res.json({ success: true });
     });
 });
@@ -513,17 +784,21 @@ app.post('/saveConfig', function (req, res) {
         "border": border,
         "color": color,
         "fontSize": fontSize
-    })
+    }, null, 2);
 
-    const configRoot = path.join(__dirname, mainRoot, "config.json")
+    const userLogin = req.cookies.userLogin;
+    if (!userLogin) {
+        return res.status(401).json({ error: 'Unauthorized: No user logged in.' });
+    }
+    const configRoot = path.join(__dirname, mainRoot, userLogin, "Configuration", "config.json");
 
     fs.writeFile(configRoot, configData, 'utf8', (err) => {
         if (err) {
             console.error('File write error:', err);
-            return res.status(500).json({ error: 'Failed to write file' });
+            return res.status(500).json({ error: 'Failed to write config file' });
         }
 
-        console.log(`File saved: ${configRoot}`);
+        console.log(`Config saved: ${configRoot}`);
         res.json({ success: true });
     })
 })
@@ -536,20 +811,93 @@ app.get("/login", function (req, res) {
     res.render("login.hbs");
 })
 
-app.post("/registerUser", function (req, res) {
-    const input = req.body;
-    console.log('req.body', input)
-    if (input.password != input.repeatPassword) {
-        res.redirect('/register');
-        return;
+app.post("/registerUser", async function (req, res) {
+    const { login, password, repeatPassword } = req.body;
+
+    if (password !== repeatPassword || !login || !password) {
+        return res.render('error.hbs', { message: "Hasła nie pasują lub brakuje danych." });
     }
-    const root = req.query.root || mainRoot;
-    res.redirect(`/?root=${root}`);
-})
+
+    try {
+        const users = await readUsers();
+
+        const exists = users.some(user => user.login === login);
+
+        if (exists) {
+            return res.render('error.hbs', { message: "Login jest już zajęty." });
+        }
+
+        const hashedPassword = await hash(password, 10);
+
+        const userFolder = path.join(__dirname, mainRoot, login);
+        const userFilesFolder = path.join(userFolder, 'Files');
+        const userConfigFolder = path.join(userFolder, 'Configuration');
+        const userConfigFile = path.join(userConfigFolder, 'config.json');
+
+        try {
+            await fs.promises.mkdir(userFilesFolder, { recursive: true });
+            await fs.promises.mkdir(userConfigFolder, { recursive: true });
+
+            const defaultConfigContent = JSON.stringify({
+                "background": "#ffffff",
+                "fontFamily": "monospace",
+                "border": "1px solid #ccc",
+                "color": "#000000",
+                "fontSize": "16px"
+            }, null, 2);
+            await fs.promises.writeFile(userConfigFile, defaultConfigContent, 'utf8');
+
+            console.log(`User folders and config created for: ${login}`);
+        } catch (dirErr) {
+            console.error('Error creating user directories or config file:', dirErr);
+        }
+
+        users.push({ login, password: hashedPassword });
+        await writeUsers(users);
+
+        return res.render('login.hbs', { message: "Rejestracja zakończona sukcesem. Możesz się zalogować." });
+    } catch (err) {
+        console.error("Błąd rejestracji:", err);
+        return res.render('error.hbs', { message: "Wystąpił błąd przy rejestracji." });
+    }
+});
+
+
+app.post("/loginUser", async function (req, res) {
+    const { login, password } = req.body;
+
+    try {
+        const users = await readUsers();
+        const user = users.find(u => u.login === login);
+
+        if (!user) {
+            return res.render('error.hbs', { message: "Nieprawidłowy login lub hasło." });
+        }
+
+        const passwordMatch = await compare(password, user.password);
+
+        if (passwordMatch) {
+            res.cookie("userLogin", login, { httpOnly: true, maxAge: 3600 * 1000 });
+            return res.redirect('/');
+        } else {
+            return res.render('error.hbs', { message: "Nieprawidłowy login lub hasło." });
+        }
+    } catch (err) {
+        console.error("Błąd logowania:", err);
+        return res.render('error.hbs', { message: "Wystąpił błąd podczas logowania." });
+    }
+});
+
+app.get("/logout", function (req, res) {
+    res.clearCookie("userLogin");
+    res.redirect("/login");
+});
+
 
 app.get("*", function (req, res) {
     const context = {
-        page: req.originalUrl
+        page: req.originalUrl,
+        loggedInUser: req.cookies.userLogin
     };
     console.log('Requested URL:', req.originalUrl);
     res.status(404).render('404.hbs', context);

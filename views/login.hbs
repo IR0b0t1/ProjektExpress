@@ -1,1 +1,17 @@
-<h1>Log In</h1>
+<header>
+    <div class="main-header">
+        <h1>Filemanager cz. 5 - users</h1>
+        <h3>{{#if error}}{{error}}{{/if}}</h3>
+    </div>
+</header>
+<main>
+    <div class="form-div">
+        <form class="login-form" method="POST" action="loginUser">
+            <p class="register-text">Login</p>
+            <input type="text" name="login" class="register-input" placeholder="User name">
+            <input type="password" name="password" class="register-input" placeholder="Password">
+            <button class="submit-button">Login</button>
+            <a href="/register">Go to register page</a>
+        </form>
+    </div>
+</main>
