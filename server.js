@@ -153,6 +153,7 @@ async function writeUsers(users) {
     }
 }
 
+// Middleware do blokowania bez loginu
 app.use((req, res, next) => {
     const publicRoutes = ['/login', '/register', '/loginUser', '/registerUser', '/404'];
 
@@ -339,55 +340,99 @@ app.post('/uploadMultipleFiles', function (req, res) {
             return res.status(500).send('Error parsing the form');
         }
 
-        console.log('FIELDS:', fields);
-        console.log('FILES:', files);
+        let submittedRoot = '';
+        if (fields.root) {
+            if (Array.isArray(fields.root)) {
+                submittedRoot = fields.root[0] || '';
+            } else {
+                submittedRoot = fields.root;
+            }
+        }
+        let targetRoot = req.userRoot;
 
-        let root = fields.root[0] || req.userRoot;
-        if (!root.startsWith(path.join(mainRoot, req.cookies.userLogin))) {
-            root = req.userRoot;
-            console.warn(`User ${req.cookies.userLogin} attempted to upload outside their root. Resetting to ${root}`);
+        const userLogin = req.cookies.userLogin;
+        if (!userLogin) {
+            console.warn("Upload attempted by unauthenticated user.");
+            return res.status(401).send("Unauthorized: Please log in.");
+        }
+        const userUploadBaseDir = path.join(__dirname, req.userRoot);
+
+        if (submittedRoot) {
+            const proposedAbsolutePath = path.join(__dirname, submittedRoot);
+            const proposedAbsolutePathNormalized = path.normalize(proposedAbsolutePath).replace(/\\/g, '/');
+            const userUploadBaseDirNormalized = path.normalize(userUploadBaseDir).replace(/\\/g, '/');
+
+            if (proposedAbsolutePathNormalized.startsWith(userUploadBaseDirNormalized)) {
+                targetRoot = proposedAbsolutePath;
+            } else {
+                console.warn(`User ${userLogin} attempted to upload outside their designated 'Files' root with submitted path: "${submittedRoot}". Resetting to default user upload root: ${userUploadBaseDir}`);
+                targetRoot = userUploadBaseDir;
+            }
+        } else {
+            targetRoot = userUploadBaseDir;
         }
 
+        const finalTargetRootNormalized = path.normalize(targetRoot).replace(/\\/g, '/');
+        const userUploadBaseDirNormalized = path.normalize(userUploadBaseDir).replace(/\\/g, '/');
+
+        if (!finalTargetRootNormalized.startsWith(userUploadBaseDirNormalized)) {
+            console.error(`CRITICAL SECURITY ALERT: Final calculated targetRoot (${targetRoot}) is outside user's designated upload base (${userUploadBaseDir}). Resetting.`);
+            targetRoot = userUploadBaseDir;
+        }
+
+
         let uploadedFiles = files.upload;
+
+        if (!uploadedFiles || (Array.isArray(uploadedFiles) && uploadedFiles.length === 0) || (uploadedFiles.length === 1 && uploadedFiles[0].name === null)) {
+            console.log('No actual files selected for upload via form input.');
+            const clientRedirectRoot = targetRoot.replace(path.join(__dirname, path.sep), '').replace(/\\/g, '/');
+            return res.redirect(`/?root=${clientRedirectRoot}`);
+        }
 
         if (!Array.isArray(uploadedFiles)) {
             uploadedFiles = [uploadedFiles];
         }
 
         uploadedFiles.forEach(file => {
-            const oldPath = file.filepath;
-            const newFolderPath = path.join(__dirname, root);
-            const newPath = path.join(newFolderPath, file.originalFilename);
+            if (file && file.path && file.name) {
+                const oldPath = file.path;
+                const newFolderPath = targetRoot;
+                const newFileName = file.name;
+                let newPath = path.join(newFolderPath, newFileName);
 
-            console.log('Moving file:', oldPath, 'to', newPath);
+                console.log('Attempting to move file from:', oldPath, 'to:', newPath);
 
-            if (!fs.existsSync(newFolderPath)) {
-                fs.mkdirSync(newFolderPath, { recursive: true });
-                console.log(`Created folder: ${newFolderPath}`);
-            }
-
-            if (fs.existsSync(newPath)) {
-                const { name: baseName, ext: extension } = path.parse(file.originalFilename);
-                const uniqueFileName = getUniqueFileName(newFolderPath, baseName, extension);
-                newPath = path.join(newFolderPath, uniqueFileName);
-            }
-
-            fs.rename(oldPath, newPath, (err) => {
-                if (err) {
-                    console.error('File rename error:', err);
-                    fs.unlink(oldPath, (unlinkErr) => {
-                        if (unlinkErr) console.error('Error deleting temp file:', unlinkErr);
-                    });
-                    return;
+                if (!fs.existsSync(newFolderPath)) {
+                    fs.mkdirSync(newFolderPath, { recursive: true });
+                    console.log(`Created folder: ${newFolderPath}`);
                 }
-                console.log('File saved:', newPath);
-            });
+
+                if (fs.existsSync(newPath)) {
+                    const { name: baseName, ext: extension } = path.parse(newFileName);
+                    const uniqueFileName = getUniqueFileName(newFolderPath, baseName, extension);
+                    newPath = path.join(newFolderPath, uniqueFileName);
+                    console.log(`File ${newFileName} already exists. Using unique name: ${uniqueFileName}`);
+                }
+
+                fs.rename(oldPath, newPath, (renameErr) => {
+                    if (renameErr) {
+                        console.error(`Error moving file ${oldPath} to ${newPath}:`, renameErr);
+                        fs.unlink(oldPath, (unlinkErr) => {
+                            if (unlinkErr) console.error('Error deleting temp file after failed rename:', unlinkErr);
+                        });
+                    } else {
+                        console.log(`File saved: ${newPath}`);
+                    }
+                });
+            } else {
+                console.warn('Skipping an unexpected invalid file object (missing path or name):', file);
+            }
         });
 
-        res.redirect(`/?root=${root.replace(/\\/g, '/')}`);
+        const clientRedirectRoot = targetRoot.replace(path.join(__dirname, path.sep), '').replace(/\\/g, '/');
+        res.redirect(`/?root=${clientRedirectRoot}`);
     });
 });
-
 
 app.get("/deleteDir", function (req, res) {
     const dir = req.query.dir;
